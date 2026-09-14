@@ -1,0 +1,2879 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>LED STRUCTURE CAD — Editor CAD + Copiloto IA</title>
+<script>
+/* Import map dinâmico: preserva XTransformPort do gateway nos vendors.
+   Acesso direto (sem query) também funciona. */
+(function () {
+  var q = location.search || "";
+  var map = {
+    "three": "./js/vendor/three.module.js" + q,
+    "three/addons/controls/OrbitControls.js": "./js/vendor/addons/OrbitControls.js" + q,
+    "three/addons/controls/TransformControls.js": "./js/vendor/addons/TransformControls.js" + q
+  };
+  var s = document.createElement("script");
+  s.type = "importmap";
+  s.textContent = JSON.stringify({ imports: map });
+  document.head.appendChild(s);
+})();
+</script>
+<style>
+/* ==========================================================================
+   LED STRUCTURE CAD — EDITOR CAD REAL + AI COPILOT OPERACIONAL
+   - Canvas ÚNICO, grande e BRANCO · UI clara · texto grafite · accent teal
+   - Ferramentas semânticas (beam/post/plate/diagonal…) — NUNCA mesh livre
+   - Copiloto IA dockado à direita: devolve OPERAÇÕES → preview → APLICAR
+   (motor Python / JSON / API / presets / PDF 100% intocados)
+   ========================================================================== */
+:root {
+  --bg: #eef0f3; --panel: #ffffff; --panel2: #f6f7f9; --card: #ffffff;
+  --line: #e1e4ea; --line-soft: #ebeef2; --hover: #f0f2f5;
+  --ink: #262b33; --muted: #697180;
+  --accent: #0d9488; --accent2: #14b8a6; --accent-soft: #e7f6f4;
+  --danger: #dc2626; --sel: #d97706;
+  --radius: 10px;
+  --shadow: 0 2px 14px rgba(23,30,40,.10);
+  --shadow-lg: 0 14px 44px rgba(23,30,40,.16);
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+html, body { height: 100%; }
+body {
+  font-family: "Inter", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  background: var(--bg); color: var(--ink); overflow: hidden; font-size: 13px;
+  display: flex; flex-direction: column;
+}
+:focus-visible { outline: 2px solid var(--accent2); outline-offset: 1px; }
+input, select, textarea, button { font-family: inherit; color: var(--ink); }
+input[type=number], input[type=text], input[type=password], select, textarea {
+  width: 100%; padding: 6px 8px; border: 1px solid var(--line); border-radius: 7px;
+  font-size: 12.5px; background: #fff; outline: none;
+  transition: border-color .15s, box-shadow .15s;
+}
+input:focus, select:focus, textarea:focus { border-color: var(--accent);
+  box-shadow: 0 0 0 2.5px rgba(20,184,166,.16); }
+input.pi { width: 100%; padding: 4px 6px; font-size: 11.5px; font-family: ui-monospace, monospace;
+  text-align: right; border-radius: 6px; }
+label.f { display: block; font-size: 10px; color: var(--muted); margin: 9px 0 3px; font-weight: 700;
+  letter-spacing: .04em; text-transform: uppercase; }
+.grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.grid3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 6px; }
+.grid4 { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; }
+
+/* ---------- header ---------- */
+#top { height: 50px; flex: none; display: flex; align-items: center; gap: 8px;
+  padding: 0 14px; background: var(--panel); border-bottom: 1px solid var(--line);
+  z-index: 30; position: relative; }
+.brand { display: flex; align-items: center; gap: 9px; margin-right: 6px; }
+.brand-badge { width: 28px; height: 28px; border-radius: 7px; flex: none;
+  background: linear-gradient(135deg, var(--accent2), #0f766e);
+  display: grid; place-items: center; color: #fff; font-weight: 800; font-size: 11px; }
+.brand b { font-size: 13px; letter-spacing: .02em; white-space: nowrap; display: block; }
+.brand small { display: block; color: var(--muted); font-size: 9px; letter-spacing: .07em;
+  text-transform: uppercase; }
+#top .sp { flex: 1; }
+.hbtn { display: inline-flex; align-items: center; gap: 6px; height: 33px; padding: 0 12px;
+  border: 1px solid var(--line); background: #fff; color: var(--ink);
+  border-radius: 8px; font-size: 12px; font-weight: 600; cursor: pointer; white-space: nowrap;
+  transition: border-color .15s, background .15s, color .15s, transform .12s; }
+.hbtn:hover { border-color: var(--accent); color: var(--accent); background: var(--accent-soft);
+  transform: translateY(-1px); }
+.hbtn:active { transform: translateY(0); }
+.hbtn.primary { background: var(--accent); border-color: var(--accent); color: #fff; font-weight: 800; }
+.hbtn.primary:hover { background: #0f766e; color: #fff; }
+.hbtn.on { border-color: var(--accent); background: var(--accent-soft); color: var(--accent); }
+.hbtn.icon { width: 33px; padding: 0; justify-content: center; font-size: 14px; }
+.hsep { width: 1px; height: 20px; background: var(--line); }
+
+/* ---------- linha principal: palco + dock IA ---------- */
+#mainrow { flex: 1; display: flex; min-height: 0; }
+#stage { position: relative; flex: 1; min-width: 0; overflow: hidden; background: #fff; }
+#viewport { position: absolute; inset: 0; overflow: hidden; }
+#viewport canvas { display: block; }
+
+/* barra de ferramentas vertical profissional (esquerda) */
+#toolbar { position: absolute; left: 10px; top: 50%; transform: translateY(-50%); z-index: 10;
+  display: flex; flex-direction: column; gap: 2px; background: rgba(255,255,255,.94);
+  border: 1px solid var(--line); border-radius: 12px; padding: 5px;
+  box-shadow: var(--shadow); max-height: calc(100% - 24px); overflow-y: auto; scrollbar-width: none; }
+#toolbar::-webkit-scrollbar { display: none; }
+.tool { width: 52px; border: 1px solid transparent; background: transparent; color: var(--muted);
+  border-radius: 8px; padding: 5px 0 4px; cursor: pointer; display: flex; flex-direction: column;
+  align-items: center; gap: 2px; flex: none; transition: all .13s; }
+.tool i { font-style: normal; font-size: 15px; line-height: 1.15; }
+.tool span { font-size: 7.4px; font-weight: 700; letter-spacing: .02em; text-transform: uppercase;
+  white-space: nowrap; }
+.tool:hover { color: var(--ink); background: var(--hover); }
+.tool.on { color: #fff; background: var(--accent); border-color: var(--accent); }
+.tool:disabled { opacity: .35; cursor: not-allowed; }
+.tool-sep { height: 1px; background: var(--line); margin: 3px 5px; flex: none; }
+
+/* popovers de ferramenta (perfil da barra / alinhar / distribuir / espelhar) */
+.tpop { position: absolute; left: 74px; top: 12px; z-index: 11; display: none;
+  background: #fff; border: 1px solid var(--line); border-radius: 10px;
+  padding: 10px 12px; width: 236px; box-shadow: var(--shadow-lg); }
+.tpop.show { display: block; animation: pop .15s ease; }
+.tpop label.f { margin-top: 0; }
+.tpop .note { font-size: 10px; color: var(--muted); margin-top: 7px; line-height: 1.45; }
+
+/* seletor de vistas + barra de snap (topo) */
+#viewbar { position: absolute; top: 10px; left: 50%; transform: translateX(-50%); z-index: 9;
+  display: flex; gap: 2px; background: rgba(255,255,255,.94); border: 1px solid var(--line);
+  border-radius: 10px; padding: 3px; box-shadow: var(--shadow); }
+.vbtn { border: 1px solid transparent; background: transparent; color: var(--muted);
+  height: 27px; padding: 0 10px; border-radius: 7px; font-size: 11px; font-weight: 700;
+  cursor: pointer; transition: all .13s; white-space: nowrap; }
+.vbtn:hover { color: var(--ink); background: var(--hover); }
+.vbtn.on { background: var(--accent); color: #fff; }
+#snapbar { position: absolute; top: 48px; left: 50%; transform: translateX(-50%); z-index: 9;
+  display: flex; align-items: center; gap: 2px; background: rgba(255,255,255,.92);
+  border: 1px solid var(--line); border-radius: 9px; padding: 3px; box-shadow: var(--shadow);
+  max-width: calc(100% - 24px); overflow-x: auto; scrollbar-width: none; }
+#snapbar::-webkit-scrollbar { display: none; }
+.sbtn { border: 1px solid transparent; background: transparent; color: var(--muted);
+  height: 24px; padding: 0 8px; border-radius: 6px; font-size: 10px; font-weight: 700;
+  cursor: pointer; white-space: nowrap; transition: all .12s; }
+.sbtn:hover { color: var(--ink); background: var(--hover); }
+.sbtn.on { background: var(--accent-soft); color: var(--accent); border-color: rgba(20,184,166,.35); }
+.ssep { width: 1px; height: 14px; background: var(--line); margin: 0 3px; flex: none; }
+.slbl { font-size: 8.5px; font-weight: 800; letter-spacing: .07em; color: var(--muted);
+  text-transform: uppercase; padding: 0 4px; flex: none; }
+
+/* overlays do viewport */
+.vp-mode { position: absolute; bottom: 44px; left: 50%; transform: translateX(-50%); z-index: 9;
+  background: #431407; color: #fed7aa; font-size: 11px; font-weight: 700;
+  padding: 6px 14px; border-radius: 20px; display: none; pointer-events: none;
+  box-shadow: var(--shadow-lg); max-width: 92%; text-align: center; }
+.vp-mode.show { display: block; animation: pop .18s ease; }
+.msel-count { position: absolute; top: 88px; right: 14px; z-index: 8;
+  background: var(--accent); color: #fff; font-size: 11px; font-weight: 700;
+  padding: 5px 12px; border-radius: 20px; display: none; pointer-events: none; }
+.msel-count.show { display: block; animation: pop .18s ease; }
+.marquee-rect { position: absolute; z-index: 8; border: 1.5px dashed var(--accent);
+  background: rgba(20,184,166,.08); border-radius: 3px; display: none; pointer-events: none; }
+.vp-measure { position: absolute; bottom: 44px; left: 50%; transform: translateX(-50%); z-index: 9;
+  background: #134e4a; color: #ccfbf1; font-family: ui-monospace, monospace;
+  font-size: 12px; font-weight: 700; padding: 6px 14px; border-radius: 20px; display: none;
+  pointer-events: none; }
+.vp-measure.show { display: block; }
+.vp-hint { position: absolute; bottom: 10px; left: 12px; z-index: 6; font-size: 10px;
+  color: var(--muted); background: rgba(255,255,255,.85); padding: 4px 10px; border-radius: 7px;
+  border: 1px solid var(--line); pointer-events: none; }
+.vp-hint b { color: var(--ink); }
+.vp-stats { position: absolute; bottom: 10px; right: 12px; z-index: 6; font-size: 10.5px;
+  color: var(--muted); background: rgba(255,255,255,.85); padding: 4px 10px; border-radius: 7px;
+  border: 1px solid var(--line); font-family: ui-monospace, monospace; pointer-events: none; }
+.vp-stats b { color: var(--ink); }
+
+/* barreira do PREVIEW da IA (aplicar / cancelar) */
+#previewBar { position: absolute; top: 88px; left: 50%; transform: translateX(-50%); z-index: 20;
+  display: none; align-items: center; gap: 10px; background: #fff;
+  border: 1.5px solid var(--accent2); border-radius: 12px; padding: 8px 10px 8px 14px;
+  box-shadow: var(--shadow-lg); }
+#previewBar.show { display: flex; animation: pop .2s ease; }
+#previewBar .pv-t { font-size: 12px; font-weight: 800; color: var(--ink); white-space: nowrap; }
+#previewBar .pv-d { font-size: 10.5px; color: var(--muted); font-family: ui-monospace, monospace;
+  white-space: nowrap; }
+.pbtn { border: 0; border-radius: 8px; height: 30px; padding: 0 14px; font-size: 11.5px;
+  font-weight: 800; cursor: pointer; transition: filter .15s; white-space: nowrap; }
+.pbtn.yes { background: var(--accent); color: #fff; }
+.pbtn.no { background: var(--hover); color: var(--muted); border: 1px solid var(--line); }
+.pbtn:hover { filter: brightness(.95); }
+
+/* ---------- inspector contextual (seleção) ---------- */
+#propFloat { position: absolute; right: 14px; top: 88px; z-index: 12; width: 264px;
+  background: rgba(255,255,255,.97); border: 1px solid var(--line); border-radius: 12px;
+  box-shadow: var(--shadow-lg); display: none; overflow: hidden; }
+#propFloat.show { display: block; animation: pop .16s ease; }
+.pf-head { display: flex; align-items: center; gap: 8px; padding: 10px 12px 8px; }
+.pf-id { font-family: ui-monospace, Menlo, monospace; font-size: 14px; font-weight: 800;
+  color: var(--accent); flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+.pf-x { border: 0; background: transparent; color: var(--muted); cursor: pointer; font-size: 13px;
+  width: 22px; height: 22px; border-radius: 6px; }
+.pf-x:hover { color: var(--ink); background: var(--hover); }
+.pf-body { padding: 0 12px 10px; max-height: 54vh; overflow-y: auto; }
+.pf-sub { color: var(--muted); font-size: 10.5px; margin-bottom: 6px; }
+.kv { display: flex; justify-content: space-between; gap: 8px; font-size: 11.5px; padding: 3.5px 0;
+  border-bottom: 1px dashed var(--line-soft); }
+.kv span { color: var(--muted); white-space: nowrap; }
+.kv b { font-family: ui-monospace, monospace; text-align: right; font-weight: 600; }
+.pi-vec { display: grid; grid-template-columns: 14px 1fr 1fr 1fr; gap: 4px; align-items: center;
+  margin: 3px 0; }
+.pi-vec em { font-style: normal; font-size: 9.5px; font-weight: 800; color: var(--muted); }
+.pi-row { display: flex; align-items: center; gap: 6px; margin: 4px 0; }
+.pi-row label { font-size: 10px; font-weight: 700; color: var(--muted); width: 74px; flex: none;
+  text-transform: uppercase; letter-spacing: .03em; }
+.pf-actions { display: flex; gap: 6px; padding: 10px 12px 12px; }
+.pf-actions .btn { flex: 1; }
+.btn { border: 1px solid var(--line); background: #fff; color: var(--ink); border-radius: 8px;
+  padding: 7px 10px; font-size: 12px; font-weight: 600; cursor: pointer; display: inline-flex;
+  align-items: center; gap: 6px; justify-content: center; transition: all .15s; }
+.btn:hover { border-color: var(--accent); color: var(--accent); background: var(--accent-soft); }
+.btn.danger { color: var(--danger); }
+.btn.danger:hover { border-color: var(--danger); background: #fef2f2; color: var(--danger); }
+.btn.primary { background: var(--accent); border-color: var(--accent); color: #fff; font-weight: 800; }
+.btn.primary:hover { background: #0f766e; color: #fff; }
+.btn.ghost { background: transparent; }
+.btn.big { padding: 10px 18px; font-size: 12.5px; }
+.chip { display: inline-block; font-family: ui-monospace, monospace; font-size: 10px; color: var(--accent);
+  border: 1px solid rgba(20,184,166,.4); background: var(--accent-soft); border-radius: 5px;
+  padding: 2px 6px; }
+
+/* ---------- drawer de elementos ---------- */
+#drawer { position: absolute; top: 0; right: 0; bottom: 0; width: 300px; z-index: 22;
+  background: rgba(255,255,255,.98); border-left: 1px solid var(--line);
+  box-shadow: -12px 0 32px rgba(23,30,40,.14);
+  transform: translateX(105%); transition: transform .22s ease; display: flex; flex-direction: column; }
+#drawer.open { transform: none; }
+.dr-head { display: flex; align-items: center; gap: 8px; padding: 13px 14px 11px;
+  border-bottom: 1px solid var(--line); }
+.dr-head b { font-size: 12px; letter-spacing: .08em; text-transform: uppercase; flex: 1; }
+.dr-body { flex: 1; overflow-y: auto; padding: 8px 12px 14px; }
+.dr-body::-webkit-scrollbar { width: 8px; }
+.dr-body::-webkit-scrollbar-thumb { background: var(--line); border-radius: 4px; }
+.dr-sec { font-size: 10px; font-weight: 800; letter-spacing: .08em; color: var(--muted);
+  text-transform: uppercase; margin: 12px 0 3px; display: flex; justify-content: space-between;
+  align-items: center; }
+.dr-sec:first-child { margin-top: 4px; }
+.dr-all { font-size: 8.5px; font-weight: 800; color: var(--accent); background: var(--accent-soft);
+  border: 1px solid rgba(20,184,166,.35); border-radius: 20px; padding: 1px 8px; cursor: pointer;
+  text-transform: lowercase; }
+.dr-all:hover { background: var(--accent); color: #fff; }
+.dr-item { display: flex; align-items: center; gap: 7px; padding: 4px 8px; border-radius: 6px;
+  cursor: pointer; font-size: 11.5px; font-family: ui-monospace, Menlo, monospace; }
+.dr-item:hover { background: var(--hover); }
+.dr-item.sel { background: #fef3c7; color: #92400e; font-weight: 700; }
+.dr-item.msel { background: var(--accent-soft); color: var(--accent); font-weight: 700; }
+.dr-item .len { margin-left: auto; color: var(--muted); font-size: 9.5px; }
+.dot { width: 8px; height: 8px; border-radius: 2.5px; flex: none; }
+.dr-proj { border: 1px solid var(--line); border-radius: 10px; padding: 10px 11px; margin-top: 6px;
+  background: var(--panel2); }
+.dr-proj .nm { font-weight: 800; font-size: 13px; margin-bottom: 2px; }
+.dr-proj .ps { display: inline-block; font-family: ui-monospace, monospace; font-size: 9px;
+  color: var(--muted); border: 1px solid var(--line); border-radius: 5px; padding: 1px 6px;
+  margin-bottom: 7px; background: #fff; }
+.dr-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+.dr-grid > div { background: #fff; border: 1px solid var(--line-soft); border-radius: 7px; padding: 5px 8px; }
+.dr-grid small { display: block; color: var(--muted); font-size: 8.5px; text-transform: uppercase;
+  letter-spacing: .05em; }
+.dr-grid b { font-size: 11.5px; font-family: ui-monospace, monospace; }
+
+/* ---------- dock do COPILOTO IA (360–400 px) ---------- */
+#aiDock { width: 380px; flex: none; background: var(--panel); border-left: 1px solid var(--line);
+  display: flex; flex-direction: column; min-height: 0; transition: margin-right .25s ease; }
+#aiDock.collapsed { margin-right: -380px; }
+.ai-head { display: flex; align-items: center; gap: 8px; padding: 11px 12px 10px;
+  border-bottom: 1px solid var(--line); background: var(--panel2); }
+.ai-head .ttl { font-size: 12.5px; font-weight: 800; letter-spacing: .02em; flex: 1;
+  display: flex; align-items: center; gap: 7px; }
+.ai-live { width: 8px; height: 8px; border-radius: 50%; background: var(--accent2);
+  box-shadow: 0 0 0 3px rgba(20,184,166,.18); flex: none; }
+.ai-cfg { border: 1px solid var(--line); background: #fff; border-radius: 7px; width: 27px;
+  height: 27px; font-size: 13px; cursor: pointer; color: var(--muted); }
+.ai-cfg:hover { color: var(--accent); border-color: var(--accent); }
+.ai-fold { border: 1px solid var(--line); background: #fff; border-radius: 7px; width: 27px;
+  height: 27px; font-size: 12px; cursor: pointer; color: var(--muted); }
+.ai-fold:hover { color: var(--accent); border-color: var(--accent); }
+.ai-ctx { display: flex; gap: 6px; flex-wrap: wrap; padding: 8px 12px 0; }
+.ctx-chip { font-size: 9.5px; font-weight: 700; color: var(--muted); background: var(--panel2);
+  border: 1px solid var(--line); border-radius: 6px; padding: 3px 8px; max-width: 100%;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ctx-chip b { color: var(--accent); }
+#aiMsgs { flex: 1; display: flex; flex-direction: column; gap: 8px; min-height: 80px;
+  overflow-y: auto; padding: 10px 12px; }
+#aiMsgs::-webkit-scrollbar { width: 8px; }
+#aiMsgs::-webkit-scrollbar-thumb { background: var(--line); border-radius: 4px; }
+.msg { max-width: 90%; padding: 8px 12px; border-radius: 11px; font-size: 12px; line-height: 1.55;
+  white-space: pre-wrap; word-break: break-word; }
+.msg.user { align-self: flex-end; background: var(--accent-soft); border: 1px solid rgba(20,184,166,.35);
+  color: #0f5f57; }
+.msg.ai { align-self: flex-start; background: var(--panel2); border: 1px solid var(--line); }
+.msg.err { align-self: flex-start; background: #fef2f2; border: 1px solid #fecaca; color: #b91c1c; }
+.msg .tag { display: block; font-size: 8.5px; letter-spacing: .08em; text-transform: uppercase;
+  color: var(--muted); margin-bottom: 3px; font-weight: 800; }
+.msg .mact { display: flex; gap: 6px; margin-top: 8px; }
+.msg .mact button { flex: 1; }
+.ai-chiprow { display: flex; gap: 6px; flex-wrap: wrap; padding: 0 12px 8px; }
+.ai-chip { font-size: 10.5px; border: 1px solid var(--line); background: #fff; color: var(--muted);
+  border-radius: 999px; padding: 4px 10px; cursor: pointer; transition: all .13s; white-space: nowrap; }
+.ai-chip:hover { border-color: var(--accent); color: var(--accent); background: var(--accent-soft); }
+.ai-chip.sel-chip { border-color: rgba(20,184,166,.45); background: var(--accent-soft); color: var(--accent); }
+.ai-row { display: flex; gap: 8px; padding: 10px 12px 12px; border-top: 1px solid var(--line); }
+.ai-row input { flex: 1; }
+.ai-foot { padding: 0 12px 10px; font-size: 9.5px; color: var(--muted); line-height: 1.5; }
+#aiDockFab { position: absolute; right: 14px; top: 88px; z-index: 13; display: none; }
+
+/* ---------- modais ---------- */
+.modal-bg { position: fixed; inset: 0; background: rgba(30,36,46,.45); z-index: 60; display: none;
+  align-items: center; justify-content: center; backdrop-filter: blur(2px); }
+.modal-bg.open { display: flex; }
+.modal { background: var(--panel); border: 1px solid var(--line); border-radius: 14px;
+  box-shadow: var(--shadow-lg); width: min(620px, 94vw); max-height: 88vh;
+  display: flex; flex-direction: column; overflow: hidden; }
+.modal > header { padding: 13px 18px; border-bottom: 1px solid var(--line); display: flex;
+  align-items: center; justify-content: space-between; gap: 10px; }
+.modal > header b { font-size: 14px; }
+.modal .content { padding: 14px 18px 18px; overflow: auto; }
+.mx { border: 0; background: transparent; color: var(--muted); font-size: 16px; cursor: pointer;
+  width: 28px; height: 28px; border-radius: 7px; }
+.mx:hover { color: var(--ink); background: var(--hover); }
+.tabs { display: flex; gap: 4px; margin-bottom: 14px; border-bottom: 1px solid var(--line); }
+.tab { border: 0; background: transparent; color: var(--muted); padding: 8px 13px 9px;
+  font-size: 12px; font-weight: 700; cursor: pointer; border-bottom: 2px solid transparent;
+  margin-bottom: -1px; border-radius: 8px 8px 0 0; }
+.tab:hover { color: var(--ink); background: var(--hover); }
+.tab.on { color: var(--accent); border-bottom-color: var(--accent); }
+.chk { display: flex; align-items: center; gap: 8px; font-size: 12.5px; cursor: pointer;
+  padding: 7px 9px; border: 1px solid var(--line); border-radius: 8px; margin-top: 6px;
+  background: var(--panel2); transition: border-color .15s; }
+.chk:hover { border-color: var(--accent); }
+.chk input { width: auto; accent-color: var(--accent); }
+.preset-card { border: 1.5px solid var(--line); border-radius: 10px; padding: 9px 11px; cursor: pointer;
+  transition: all .15s; background: var(--panel2); position: relative; }
+.preset-card:hover { border-color: var(--accent); }
+.preset-card b { font-size: 12.5px; }
+.preset-card small { display: block; color: var(--muted); font-size: 10.5px; margin-top: 2px; line-height: 1.4; }
+.preset-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.cat { display: inline-block; font-size: 8.5px; font-weight: 800; letter-spacing: .06em;
+  text-transform: uppercase; border-radius: 4px; padding: 1.5px 5px; margin-bottom: 3px; color: #fff; }
+.cat-dooh { background: #0d9488; }
+.cat-parede { background: #d97706; }
+.cat-suspenso { background: #7c6bd6; }
+.cat-rental { background: #db2777; }
+.cat-custom { background: #0891b2; }
+.cat-outro { background: #8b93a1; }
+.preset-del { position: absolute; top: 7px; right: 7px; width: 20px; height: 20px; border: 1px solid var(--line);
+  background: #fff; border-radius: 6px; font-size: 10px; color: var(--muted); cursor: pointer;
+  opacity: 0; transition: opacity .15s; }
+.preset-card:hover .preset-del { opacity: 1; }
+.preset-del:hover { color: var(--danger); border-color: var(--danger); }
+.preset-del.arm { opacity: 1; background: var(--danger); color: #fff; width: auto; padding: 0 6px;
+  font-weight: 800; }
+
+/* ---------- PRANCHA FINAL ---------- */
+#sheet { position: fixed; inset: 0; z-index: 70; background: var(--bg); display: none;
+  flex-direction: column; }
+#sheet.open { display: flex; }
+.sh-head { height: 50px; flex: none; display: flex; align-items: center; gap: 10px;
+  padding: 0 16px; background: var(--panel); border-bottom: 1px solid var(--line); }
+.sh-head b { font-size: 13px; letter-spacing: .06em; text-transform: uppercase; }
+.sh-head .sp { flex: 1; }
+.sh-scroll { flex: 1; overflow-y: auto; padding: 22px 16px 40px; }
+.paper { max-width: 1480px; margin: 0 auto; background: #fff; color: #17181c; border-radius: 12px;
+  padding: 26px 28px 30px; box-shadow: var(--shadow-lg); border: 1px solid var(--line); }
+.paper h1 { font-size: 17px; letter-spacing: .05em; }
+.paper .p-sub { color: #5b6472; font-size: 11px; margin-top: 2px; }
+.p-meta { display: flex; flex-wrap: wrap; gap: 8px; margin: 14px 0 18px; }
+.p-meta div { background: var(--panel2); border: 1px solid var(--line); border-radius: 8px; padding: 6px 11px; }
+.p-meta small { display: block; color: #8a919d; font-size: 8.5px; text-transform: uppercase;
+  letter-spacing: .06em; }
+.p-meta b { font-family: ui-monospace, monospace; font-size: 12px; }
+.views-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(340px, 1fr)); gap: 14px; }
+.vframe { background: #fff; border: 1px solid #d6d9df; border-radius: 10px; padding: 10px; }
+.vframe svg { width: 100%; height: auto; display: block; }
+.p-sec { font-size: 12px; font-weight: 800; letter-spacing: .08em; text-transform: uppercase;
+  color: #3c4350; margin: 24px 0 10px; padding-bottom: 6px; border-bottom: 2px solid #dcdfe5; }
+table.pmat { width: 100%; border-collapse: collapse; font-size: 11.5px; background: #fff;
+  border: 1px solid #dcdfe5; border-radius: 10px; overflow: hidden; }
+table.pmat th { background: #eceef2; text-align: left; font-size: 9.5px; letter-spacing: .06em;
+  text-transform: uppercase; color: #5b6472; padding: 8px 10px; border-bottom: 1px solid #dcdfe5; }
+table.pmat td { padding: 6.5px 10px; border-bottom: 1px solid #eceef2;
+  font-family: ui-monospace, monospace; font-size: 11px; }
+table.pmat tr.total td { font-weight: 800; background: #f0fdf9; }
+.p-notes { background: var(--panel2); border: 1px solid var(--line); border-left: 4px solid #14b8a6;
+  border-radius: 8px; padding: 12px 16px; font-size: 11.5px; line-height: 1.7; }
+.p-notes .warn { color: #b45309; font-weight: 700; }
+.p-exports { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 14px; }
+.p-exports button { font-size: 10.5px; padding: 5px 10px; background: #fff; color: #3c4350;
+  border: 1px solid #d6d9df; border-radius: 7px; cursor: pointer; }
+.p-exports button:hover { border-color: #14b8a6; color: #0f766e; }
+
+/* ---------- toasts / loading ---------- */
+#toasts { position: fixed; right: 16px; bottom: 16px; z-index: 90; display: flex;
+  flex-direction: column; gap: 8px; }
+.toast { background: #fff; color: var(--ink); border: 1px solid var(--line); border-radius: 10px;
+  padding: 10px 14px; font-size: 12.5px; box-shadow: var(--shadow-lg); max-width: 380px;
+  animation: pop .2s ease; line-height: 1.45; }
+.toast.ok { border-left: 4px solid var(--accent2); }
+.toast.err { border-left: 4px solid var(--danger); }
+@keyframes pop { from { transform: translateY(8px); opacity: 0; } to { transform: none; opacity: 1; } }
+#loading { position: fixed; inset: 0; z-index: 100; background: var(--bg); display: flex;
+  flex-direction: column; gap: 14px; align-items: center; justify-content: center;
+  transition: opacity .4s; }
+#loading.hide { opacity: 0; pointer-events: none; }
+.spinner { width: 40px; height: 40px; border: 4px solid var(--line); border-top-color: var(--accent);
+  border-radius: 50%; animation: spin .9s linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }
+kbd { display: inline-block; background: var(--panel2); border: 1px solid var(--line);
+  border-bottom-width: 2px; border-radius: 5px; padding: 1px 6px; font-family: ui-monospace, monospace;
+  font-size: 10.5px; font-weight: 700; }
+table.shortcuts { width: 100%; border-collapse: collapse; font-size: 11.5px; }
+table.shortcuts td { padding: 4px 6px; border-bottom: 1px dashed var(--line-soft); vertical-align: top; }
+table.shortcuts td:first-child { white-space: nowrap; width: 1%; }
+.help-ai { font-family: ui-monospace, Menlo, monospace; font-size: 11px; line-height: 1.7;
+  background: var(--panel2); border: 1px solid var(--line); border-radius: 8px; padding: 10px 12px;
+  white-space: pre-wrap; max-height: 260px; overflow: auto; }
+.help-h { font-size: 11px; font-weight: 800; letter-spacing: .05em; text-transform: uppercase;
+  margin: 14px 0 8px; }
+.help-note { font-size: 10.5px; color: var(--muted); margin-top: 8px; line-height: 1.55; }
+
+/* ---------- responsivo ---------- */
+@media (max-width: 1100px) {
+  /* dock vira overlay deslizante em telas menores */
+  #aiDock { position: absolute; right: 0; top: 50px; bottom: 0; z-index: 40;
+    box-shadow: -16px 0 40px rgba(23,30,40,.18); }
+  #aiDock.collapsed { margin-right: 0; transform: translateX(105%); transition: transform .25s ease; }
+}
+@media (min-width: 1101px) { #aiDockFab { display: none !important; } }
+@media (max-width: 860px) {
+  .hbtn { padding: 0 9px; flex: none; }
+  .hbtn .hlabel { display: none; }
+  .brand small { display: none; }
+  #top { overflow-x: auto; scrollbar-width: none; }
+  #top::-webkit-scrollbar { display: none; }
+  #toolbar { left: 8px; }
+  .tool { width: 42px; }
+  #drawer { width: min(300px, 86vw); }
+  #viewbar { max-width: calc(100vw - 90px); overflow-x: auto; scrollbar-width: none; }
+  #viewbar::-webkit-scrollbar { display: none; }
+}
+@media (max-width: 560px) {
+  .brand b { font-size: 11.5px; }
+  #propFloat { width: 228px; }
+  .views-grid { grid-template-columns: 1fr; }
+  .vp-hint { display: none; }
+}
+</style>
+</head>
+<body>
+<div id="loading"><div class="spinner"></div>
+  <div style="color:var(--muted);font-size:13px">Carregando LED STRUCTURE CAD…</div></div>
+
+<!-- ==================== HEADER ==================== -->
+<header id="top">
+  <div class="brand">
+    <div class="brand-badge">LC</div>
+    <div><b>LED STRUCTURE CAD</b><small>editor CAD · copiloto IA · mm</small></div>
+  </div>
+  <span class="sp"></span>
+  <button class="hbtn" id="btnNew" title="Novo projeto — painel reto ou pre-sets salvos">＋<span class="hlabel">Novo</span></button>
+  <button class="hbtn" id="btnImport" title="Importar projeto JSON — cole ou escolha o arquivo">⤒<span class="hlabel">Importar JSON</span></button>
+  <button class="hbtn" id="btnSave" title="Salvar projeto (Ctrl+S)">💾<span class="hlabel">Salvar</span></button>
+  <button class="hbtn primary" id="btnSheet" title="Gerar a prancha de esboço — vistas e cotas">🖨<span class="hlabel">Gerar Prancha</span></button>
+  <span class="hsep"></span>
+  <button class="hbtn" id="btnDrawer" title="Árvore de elementos (temporária)">☰<span class="hlabel">Elementos</span></button>
+  <button class="hbtn icon" id="btnHelp" title="Ajuda e atalhos (?)">?</button>
+</header>
+
+<div id="mainrow">
+  <!-- ==================== PALCO — CANVAS ÚNICO BRANCO ==================== -->
+  <div id="stage">
+    <div id="viewport"></div>
+
+    <!-- ferramentas (seleção/edição · desenho semântico · organização · histórico) -->
+    <div id="toolbar">
+      <button class="tool on" data-mode="select" id="toolSelect" title="Selecionar (Esc volta p/ cá)"><i>⌖</i><span>Selecionar</span></button>
+      <button class="tool" id="toolMove" title="Mover com gizmo — selecione e arraste (G)"><i>⤧</i><span>Mover</span></button>
+      <button class="tool" data-mode="rotate" id="toolRotate" title="Rotacionar — clique no elemento: gira 90° em Z · Shift = −90° (T)"><i>⟳</i><span>Rotacionar</span></button>
+      <button class="tool" data-mode="copy" id="toolCopy" title="Copiar seleção — clique no destino para colar (C)"><i>⧈</i><span>Copiar</span></button>
+      <button class="tool" id="toolDup" title="Duplicar seleção (+300 mm em X) (D)"><i>⧉</i><span>Duplicar</span></button>
+      <button class="tool" id="toolDel" title="Excluir seleção (Del)"><i>🗑</i><span>Excluir</span></button>
+      <div class="tool-sep"></div>
+      <button class="tool" data-mode="bar" id="toolBar" title="Desenhar barra A→B com snap (B)"><i>╱</i><span>Barra</span></button>
+      <button class="tool" data-mode="post" id="toolPost" title="Adicionar poste — clique no solo (altura = pé-direito) (P)"><i>⊞</i><span>Poste</span></button>
+      <button class="tool" data-mode="plate" id="toolPlate" title="Chapa — clique dois cantos A→B (10 mm) (K)"><i>▭</i><span>Chapa</span></button>
+      <button class="tool" data-mode="diag" id="toolDiag" title="Diagonal A→B — liga pontos com barra diagonal (X)"><i>⤬</i><span>Diagonal</span></button>
+      <div class="tool-sep"></div>
+      <button class="tool" data-mode="ruler" id="toolRuler" title="Medir — distância A→B com componentes (M)"><i>⇹</i><span>Medir</span></button>
+      <button class="tool" data-mode="dim" id="toolDim" title="Cota — deixa a medida visível na cena (N)"><i>⊣⊢</i><span>Cota</span></button>
+      <div class="tool-sep"></div>
+      <button class="tool" data-mode="align" id="toolAlign" title="Alinhar seleção (≥2) num eixo (L)"><i>⊟</i><span>Alinhar</span></button>
+      <button class="tool" data-mode="distrib" id="toolDistrib" title="Distribuir seleção (≥3) no eixo (U)"><i>⋮⋮</i><span>Distribuir</span></button>
+      <button class="tool" data-mode="offset" id="toolOffset" title="Paralela — clique numa barra: duplica ao lado (O)"><i>∥</i><span>Paralela</span></button>
+      <button class="tool" data-mode="mirror" id="toolMirror" title="Espelhar seleção no plano (R)"><i>⇄</i><span>Espelhar</span></button>
+      <button class="tool" data-mode="trim" id="toolTrim" title="Podar — barra + ponto: encurta até o ponto (Y)"><i>⌐</i><span>Podar</span></button>
+      <button class="tool" data-mode="extend" id="toolExtend" title="Esticar — barra + ponto: leva a ponta até o ponto (E)"><i>→]</i><span>Esticar</span></button>
+      <div class="tool-sep"></div>
+      <button class="tool" id="toolUndo" title="Desfazer (Ctrl+Z)"><i>↺</i><span>Desfazer</span></button>
+      <button class="tool" id="toolRedo" title="Refazer (Ctrl+Shift+Z)"><i>↻</i><span>Refazer</span></button>
+    </div>
+
+    <!-- popover de geometria (Barra/Diagonal) -->
+    <div class="tpop" id="barPop">
+      <label class="f">Nova barra geométrica</label>
+      <input id="barProfile" type="hidden" value="METALON_40x40x2">
+      <div class="note">Defina os dois pontos A→B. O esboço registra posição e medida; a empresa define o material.</div>
+    </div>
+
+    <!-- popover ALINHAR -->
+    <div class="tpop" id="alignPop">
+      <label class="f">Alinhar seleção (≥ 2 elementos)</label>
+      <div class="grid2">
+        <div><label class="f" style="margin-top:0">Eixo</label>
+          <select id="alAxis"><option value="x">X — largura</option><option value="y">Y — profundidade</option><option value="z">Z — altura</option></select></div>
+        <div><label class="f" style="margin-top:0">Âncora</label>
+          <select id="alAnchor"><option value="min">mínimo</option><option value="center" selected>centro</option><option value="max">máximo</option></select></div>
+      </div>
+      <button class="btn primary" id="alGo" style="width:100%;margin-top:10px">ALINHAR SELEÇÃO</button>
+      <div class="note">O alvo é a caixa coletiva da seleção — cada elemento move o mínimo necessário.</div>
+    </div>
+
+    <!-- popover DISTRIBUIR -->
+    <div class="tpop" id="distribPop">
+      <label class="f">Distribuir seleção (≥ 3 elementos)</label>
+      <label class="f" style="margin-top:0">Eixo</label>
+      <select id="dsAxis"><option value="x">X — largura</option><option value="y">Y — profundidade</option><option value="z">Z — altura</option></select>
+      <button class="btn primary" id="dsGo" style="width:100%;margin-top:10px">DISTRIBUIR</button>
+      <div class="note">Distribui os CENTROS uniformemente entre o primeiro e o último da seleção.</div>
+    </div>
+
+    <!-- popover ESPELHAR -->
+    <div class="tpop" id="mirrorPop">
+      <label class="f">Espelhar seleção</label>
+      <div class="grid2">
+        <div><label class="f" style="margin-top:0">Plano ⊥</label>
+          <select id="miAxis"><option value="x">X (esq↔dir)</option><option value="y">Y (frente↔trás)</option><option value="z">Z (cima↔baixo)</option></select></div>
+        <div><label class="f" style="margin-top:0">Pivot (mm)</label><input type="number" id="miPivot" value="0" step="50"></div>
+      </div>
+      <label class="chk"><input type="checkbox" id="miCopy" checked> Criar cópias espelhadas (manter originais)</label>
+      <button class="btn primary" id="miGo" style="width:100%;margin-top:10px">ESPELHAR</button>
+    </div>
+
+    <!-- vistas (mesmo viewport, câmera reposicionada) -->
+    <div id="viewbar">
+      <button class="vbtn on" data-view="free">3D</button>
+      <button class="vbtn" data-view="FRONTAL">Frente</button>
+      <button class="vbtn" data-view="TRASEIRA">Fundo</button>
+      <button class="vbtn" data-view="ESQUERDA">Esquerda</button>
+      <button class="vbtn" data-view="DIREITA">Direita</button>
+      <button class="vbtn" data-view="SUPERIOR">Superior</button>
+      <button class="vbtn" data-view="INFERIOR">Inferior</button>
+    </div>
+
+    <!-- snap + ORTHO -->
+    <div id="snapbar">
+      <span class="slbl">Snap</span>
+      <button class="sbtn on" data-snap="master" title="Snap geral liga/desliga">⌁ ativo</button>
+      <button class="sbtn on" data-snap="endpoint" title="Extremidades de barras">ponta</button>
+      <button class="sbtn on" data-snap="center" title="Ponto médio das barras">meio</button>
+      <button class="sbtn on" data-snap="inter" title="Interseção de duas barras">cruz</button>
+      <button class="sbtn on" data-snap="edges" title="Ponto sobre a aresta da barra">aresta</button>
+      <button class="sbtn on" data-snap="grid" title="Grade de 50 mm">grelha</button>
+      <span class="ssep"></span>
+      <span class="slbl">Ortho</span>
+      <button class="sbtn on" data-ortho="auto" title="Constrange ao eixo dominante (segurando o traço A→B)">auto</button>
+      <button class="sbtn" data-ortho="x" title="Só X">X</button>
+      <button class="sbtn" data-ortho="y" title="Só Y (profundidade)">Y</button>
+      <button class="sbtn" data-ortho="z" title="Só Z (altura)">Z</button>
+      <span class="ssep"></span>
+      <button class="sbtn on" id="panelVis" title="Mostrar/ocultar a referência do painel (Q)">▯ painel</button>
+    </div>
+
+    <div class="vp-mode" id="vpMode"></div>
+    <div class="msel-count" id="mselCount"></div>
+    <div class="marquee-rect" id="marqueeRect"></div>
+    <div class="vp-measure" id="vpMeasure"></div>
+
+    <!-- PREVIEW da IA: aplicar / cancelar -->
+    <div id="previewBar">
+      <div>
+        <div class="pv-t" id="pvTitle">✨ 0 alterações propostas</div>
+        <div class="pv-d" id="pvDetail">—</div>
+      </div>
+      <button class="pbtn yes" id="pvApply">✓ APLICAR</button>
+      <button class="pbtn no" id="pvCancel">✕ CANCELAR</button>
+    </div>
+
+    <div class="vp-hint">arraste <b>orbitar</b> · scroll <b>zoom</b> · Shift+arraste <b>área</b> · <b>B</b> barra · <b>M</b> medir · <b>N</b> cota · <b>F</b> enquadrar · <b>Esc</b> cancela</div>
+    <div class="vp-stats" id="vpStats">—</div>
+
+    <!-- inspector contextual (só com seleção) -->
+    <div id="propFloat">
+      <div class="pf-head">
+        <div class="pf-id" id="pfId">—</div>
+        <button class="pf-x" id="pfRename" title="Renomear ID">✎</button>
+        <button class="pf-x" id="pfClose" title="Fechar (Esc)">✕</button>
+      </div>
+      <div class="pf-body" id="pfBody"></div>
+      <div class="pf-actions" id="pfActions"></div>
+    </div>
+
+    <!-- drawer de elementos -->
+    <aside id="drawer">
+      <div class="dr-head">
+        <b>Elementos</b>
+        <span id="drCount" style="font-size:10px;color:var(--muted)"></span>
+        <button class="mx" id="drClose" title="Fechar (Esc)">✕</button>
+      </div>
+      <div class="dr-body" id="drBody"></div>
+    </aside>
+
+    <!-- FAB reabrir dock (mobile) -->
+    <button class="hbtn" id="aiDockFab" title="Abrir copiloto IA">✨ IA</button>
+  </div>
+
+  <!-- ==================== DOCK — COPILOTO IA OPERACIONAL ==================== -->
+  <aside id="aiDock">
+    <div class="ai-head">
+      <div class="ttl"><span class="ai-live"></span> Copiloto IA</div>
+      <button class="ai-cfg" id="aiCfgBtn" title="⚙ Conector — conexões de IA (URL base, chave, modelo)">⚙</button>
+      <button class="ai-fold" id="aiFold" title="Recolher o painel da IA (o canvas cresce)">»</button>
+    </div>
+    <div class="ai-ctx" id="aiCtx">
+      <span class="ctx-chip" id="ctxView">vista: <b>3D</b></span>
+      <span class="ctx-chip" id="ctxSel">seleção: <b>nenhuma</b></span>
+      <span class="ctx-chip" id="ctxProj">projeto: <b>—</b></span>
+    </div>
+    <div id="aiMsgs"></div>
+    <div class="ai-chiprow" id="aiChips"></div>
+    <div class="ai-row">
+      <input type="text" id="aiInput" placeholder='Peça uma alteração: "adicione outro poste igual a esse 960 mm para a direita"…'>
+      <button class="btn primary" id="aiSend">Enviar</button>
+    </div>
+    <div id="aiConnStrip" style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;padding:4px 10px 0"></div>
+    <div class="ai-foot">A IA devolve <b>operações</b> → você vê o <b>preview</b> no canvas → <b>APLICAR</b>.
+      Projeto existente nunca é regenerado para pequenas alterações. Ctrl+Z desfaz (IA e manual na mesma pilha).</div>
+  </aside>
+</div>
+
+<!-- ==================== MODAL NOVO PROJETO ==================== -->
+<div class="modal-bg" id="newModal">
+  <div class="modal" style="width:min(640px,94vw)">
+    <header><b>Novo projeto</b><button class="mx" data-close="newModal">✕</button></header>
+    <div class="content">
+      <div class="tabs">
+        <button class="tab on" data-ntab="blank">Em branco</button>
+        <button class="tab" data-ntab="reto">Formulário rápido</button>
+        <button class="tab" data-ntab="presets">Presets salvos</button>
+      </div>
+
+      <div id="ntab-blank">
+        <div style="padding:10px 0 6px;line-height:1.6;color:var(--muted)">
+          <b style="color:var(--ink)">Começar um esboço vazio</b><br>
+          Abra somente o canvas e desenhe com as ferramentas, arrastando barras,
+          ou peça à IA para assumir uma estrutura específica.
+        </div>
+        <div class="btn-row" style="display:flex;gap:8px;margin-top:14px">
+          <button class="btn primary big" id="nBlankCreate" style="flex:1">CRIAR PROJETO EM BRANCO</button>
+        </div>
+      </div>
+
+      <div id="ntab-reto" style="display:none">
+        <div class="grid4">
+          <div><label class="f">Gabinete L (mm)</label><input type="number" id="nGw" value="960" step="10" min="200"></div>
+          <div><label class="f">Gabinete A (mm)</label><input type="number" id="nGh" value="960" step="10" min="200"></div>
+          <div><label class="f">Gabinete P (mm)</label><input type="number" id="nGd" value="100" step="10" min="50"></div>
+          <div><label class="f">Colunas</label><input type="number" id="nCols" value="2" min="1" max="30" step="1"></div>
+          <div><label class="f">Linhas</label><input type="number" id="nRows" value="1" min="1" max="20" step="1"></div>
+          <div><label class="f">Postes</label><input type="number" id="nPosts" value="1" min="0" max="6" step="1"></div>
+          <div><label class="f">Pé-direito (mm)</label><input type="number" id="nPd" value="3000" step="100" min="0"></div>
+          <div><label class="f">Gaiola — prof. (mm)</label><input type="number" id="nCageD" value="650" step="50" min="200"></div>
+        </div>
+        <div style="display:flex;gap:8px;margin-top:9px;flex-wrap:wrap">
+          <div style="flex:1;border:1px solid var(--line);border-radius:8px;padding:6px 10px;background:var(--panel2)">
+            <small style="color:var(--muted);font-size:9px;text-transform:uppercase;letter-spacing:.05em">Painel resultante</small>
+            <b id="nPanelOut" style="font-family:ui-monospace,monospace;font-size:12.5px">1920 × 960 mm</b>
+          </div>
+        </div>
+        <label class="chk"><input type="checkbox" id="nCage" checked> Gaiola estrutural (módulo dos gabinetes)</label>
+        <label class="chk"><input type="checkbox" id="nWalk" checked> Passarela de manutenção atrás</label>
+        <label class="chk"><input type="checkbox" id="nRail" checked> Guarda-corpo na passarela (1,10 m)</label>
+        <div class="btn-row" style="display:flex;gap:8px;margin-top:14px">
+          <button class="btn primary big" id="nCreate" style="flex:1">CRIAR</button>
+        </div>
+        <div style="font-size:10px;color:var(--muted);margin-top:8px;line-height:1.5">
+          A IA desenha a estrutura completa do zero com a ferramenta (gabinetes → gaiola → postes →
+          passarela). Depois de criar, o modal fecha e só o projeto aparece no canvas.
+        </div>
+      </div>
+
+      <div id="ntab-presets" style="display:none">
+        <div class="preset-grid" id="presetGrid"></div>
+        <div style="font-size:10px;color:var(--muted);margin-top:10px;line-height:1.5">
+          Presets são pontos de partida prontos — depois edite livremente com as ferramentas ou com a IA.
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ==================== MODAL IMPORTAR JSON ==================== -->
+<div class="modal-bg" id="importModal">
+  <div class="modal" style="width:min(720px,94vw)">
+    <header><b>Importar JSON</b><button class="mx" data-close="importModal">✕</button></header>
+    <div class="content">
+      <div style="border:1px solid var(--accent);background:color-mix(in srgb,var(--accent) 7%,transparent);border-radius:8px;padding:10px;margin-bottom:12px">
+        <b style="font-size:12px">IA externa (ChatGPT, Gemini, Claude...)</b>
+        <p style="font-size:10px;color:var(--muted);line-height:1.45;margin:5px 0 8px">Copie este prompt em um chat novo. Depois descreva o projeto desejado para a IA. Ela deve devolver somente o JSON que este CAD importa.</p>
+        <button class="btn" id="impCopyPrompt" style="font-size:11px">Copiar prompt mestre para IA externa</button>
+        <span id="impCopyState" style="font-size:10px;color:var(--muted);margin-left:6px"></span>
+      </div>
+      <label class="f">Cole o JSON do projeto</label>
+      <textarea id="impText" rows="10" style="resize:vertical;font-family:ui-monospace,monospace;font-size:11px"
+        placeholder='{"project": …, "panel": …, "elements": […], "installation": …}'></textarea>
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-top:10px;gap:8px">
+        <button class="btn ghost" id="impFile" style="font-size:11px">ou escolher arquivo…</button>
+        <input type="file" id="impInput" accept=".json,application/json" style="display:none">
+        <button class="btn primary" id="impGo">IMPORTAR</button>
+      </div>
+      <div style="font-size:10px;color:var(--muted);margin-top:8px">A validação e a reconstrução são 100% no motor Python.</div>
+    </div>
+  </div>
+</div>
+
+<!-- ==================== MODAL CONECTOR IA (conexões manuais universais) ==================== -->
+<div class="modal-bg" id="aiCfgModal">
+  <div class="modal" style="width:min(540px,94vw)">
+    <header><b>⚙ Conector de IA</b><button class="mx" data-close="aiCfgModal">✕</button></header>
+    <div class="content">
+      <label class="f">Conexões salvas</label>
+      <div id="aiConnList" style="display:flex;flex-direction:column;gap:6px;margin-bottom:8px"></div>
+      <button type="button" class="btn" id="aiNewConn" style="margin-bottom:10px">+ Nova conexão</button>
+      <label class="f">Nome da conexão</label>
+      <input type="text" id="aiConnName" placeholder="ex.: Groq Qwen · OpenRouter Free · Gemini Flash" autocomplete="off">
+      <label class="f">URL base da API</label>
+      <input type="text" id="aiConnBase" placeholder="https://api.groq.com/openai/v1" autocomplete="off">
+      <label class="f">Chave de API <span id="aiConnKeyState" style="font-weight:400"></span></label>
+      <input type="password" id="aiConnKey" placeholder="cole a chave…" autocomplete="off">
+      <label class="f">Modelo</label>
+      <input type="text" id="aiConnModel" placeholder="ex.: qwen/qwen3.8-27b" autocomplete="off">
+      <div style="display:flex;gap:8px;margin-top:12px;flex-wrap:wrap">
+        <button type="button" class="btn" id="aiTestBtn">Testar conexão</button>
+        <button type="button" class="btn primary" id="aiSaveConn">Salvar conexão</button>
+        <button type="button" class="btn" id="aiDelConn" hidden>Excluir conexão</button>
+      </div>
+      <p id="aiTestOut" style="font-size:11px;margin-top:8px;line-height:1.5;color:var(--muted)"></p>
+      <p style="font-size:10px;color:var(--muted);margin-top:6px;line-height:1.5">API compatível com OpenAI. Informe URL base e modelo fornecidos pelo provedor.</p>
+    </div>
+  </div>
+</div>
+
+<!-- ==================== MODAL AJUDA ==================== -->
+<div class="modal-bg" id="helpModal">
+  <div class="modal" style="width:min(680px,94vw)">
+    <header><b>Ajuda — ferramentas &amp; atalhos</b><button class="mx" data-close="helpModal">✕</button></header>
+    <div class="content" id="helpContent"></div>
+  </div>
+</div>
+
+<!-- ==================== PRANCHA FINAL (GERAR PROJETO) ==================== -->
+<div id="sheet">
+  <div class="sh-head">
+    <b>Prancha do projeto</b>
+    <span id="sheetName" style="font-size:12px;color:var(--muted)"></span>
+    <span class="sp"></span>
+    <button class="btn" id="sheetBack">← VOLTAR AO EDITOR</button>
+    <button type="button" class="btn primary big" id="sheetPdf">⤓ BAIXAR PDF</button>
+  </div>
+  <div class="sh-scroll"><div class="paper" id="sheetPaper">
+    <div style="text-align:center;padding:60px 0;color:#8a919d;font-size:12px">gerando prancha…</div>
+  </div></div>
+</div>
+
+<div id="toasts"></div>
+
+<script type="module">
+/* =========================================================================
+   LED STRUCTURE CAD — camada de visualização/interação (UI clara).
+   Toda a autoridade fica no backend Python: ferramentas e IA produzem
+   OPERAÇÕES → motor valida/executa → novo modelo → nova geometria 3D.
+   ========================================================================= */
+import * as THREE from 'three';
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+import { TransformControls } from 'three/addons/controls/TransformControls.js';
+
+/* ---------------- helpers API (preserva XTransformPort do gateway) ------- */
+const PORTQ = (() => {
+  const m = location.search.match(/XTransformPort=(\d+)/);
+  return m ? `XTransformPort=${m[1]}` : "";
+})();
+
+/* Toda falha exibida ao usuário precisa ser texto. FastAPI/Pydantic devolve
+   `detail` como objeto/lista em validações 422; concatenar isso diretamente
+   produz o inútil "[object Object]". */
+function errorText(payload, status = null) {
+  const fallback = status ? `Falha na requisição (HTTP ${status})` : "Falha na requisição";
+  if (payload instanceof Error) return errorText(payload.message, status);
+  if (typeof payload === "string") return payload.trim() || fallback;
+  if (!payload || typeof payload !== "object") return fallback;
+
+  for (const key of ["error", "message"]) {
+    if (typeof payload[key] === "string" && payload[key].trim()) return payload[key].trim();
+  }
+
+  const detail = payload.detail;
+  if (typeof detail === "string" && detail.trim()) return detail.trim();
+  if (Array.isArray(detail) && detail.length) {
+    const messages = detail.map(item => {
+      if (typeof item === "string") return item;
+      if (!item || typeof item !== "object") return "";
+      const msg = typeof item.msg === "string" ? item.msg : "valor inválido";
+      const loc = Array.isArray(item.loc)
+        ? item.loc.filter(part => part !== "body").join(".")
+        : "";
+      return loc ? `Campo ${loc}: ${msg}` : msg;
+    }).filter(Boolean);
+    if (messages.length) return messages.join(" · ");
+  }
+  if (detail && typeof detail === "object") return errorText(detail, status);
+  if (typeof payload.msg === "string" && payload.msg.trim()) return payload.msg.trim();
+  return fallback;
+}
+
+async function api(path, opts = {}) {
+  const sep = path.includes("?") ? "&" : "?";
+  const url = path + (PORTQ ? sep + PORTQ : "");
+  const res = await fetch(url, {
+    headers: { "Content-Type": "application/json" }, ...opts,
+  });
+  if (!res.ok) {
+    let payload = null;
+    try { payload = await res.json(); } catch {}
+    throw new Error(errorText(payload, res.status));
+  }
+  return res.json();
+}
+const $ = (s) => document.querySelector(s);
+const fmt = (n) => (Math.round(n * 10) / 10).toLocaleString("pt-BR");
+function toast(msg, ok = true) {
+  const d = document.createElement("div");
+  d.className = "toast " + (ok ? "ok" : "err");
+  d.textContent = msg;
+  $("#toasts").appendChild(d);
+  setTimeout(() => { d.style.opacity = "0"; d.style.transition = "opacity .4s"; setTimeout(() => d.remove(), 400); }, 4200);
+}
+function download(url, name) {
+  fetch(url + (url.includes("?") ? "&" : "?") + PORTQ).then(r => { if (!r.ok) throw new Error("falhou"); return r.blob(); })
+    .then(b => { const a = document.createElement("a"); a.href = URL.createObjectURL(b); a.download = name; a.click(); toast("Download iniciado: " + name); })
+    .catch(e => toast("Erro no download: " + e.message, false));
+}
+
+/* ---------------- estado ---------------- */
+let MODEL = null, BOM = null, PROFILES = [], selectedId = null;
+const multiIds = new Set();        // seleção múltipla (Shift+clique / área)
+const meshes = new Map();          // elementId -> THREE.Object3D
+let panelMesh = null;
+const opsStack = [];               // histórico desta sessão (op única OU {batch,ops})
+const redoStack = [];              // entradas desfeitas prontas p/ Refazer
+const REDOABLE = /^(add_|set_|move_element|delete_element|duplicate_element|update_profile|rename_element|multi_|__blank)/;
+let clipboardIds = [];             // ferramenta COPIAR
+let currentView = "free";
+
+/* ---------------- cena three.js (CANVAS BRANCO, UI clara) ---------------- */
+const vp = $("#viewport");
+const renderer = new THREE.WebGLRenderer({ antialias: true });
+renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+vp.appendChild(renderer.domElement);
+
+const scene = new THREE.Scene();
+scene.background = new THREE.Color(0xffffff);
+
+const camera = new THREE.PerspectiveCamera(45, 1, 20, 300000);
+camera.position.set(9000, 7000, 12000);
+
+const controls = new OrbitControls(camera, renderer.domElement);
+controls.enableDamping = true;
+controls.dampingFactor = 0.08;
+controls.maxPolarAngle = Math.PI * 0.995;   // permite vista INFERIOR
+// Nunca deixe o orbit atravessar a estrutura ou afastar a câmera até ela sumir.
+// Os limites precisos são recalculados em focusView conforme o modelo carregado.
+controls.minDistance = 250;
+controls.maxDistance = 50000;
+
+// Alguns mouses/touchpads entregam um delta de roda muito maior que outros.
+// Em vez de repassar esse delta ao OrbitControls, cada gesto altera exatamente
+// 10% da distância atual até o alvo: previsível em qualquer computador.
+renderer.domElement.addEventListener("wheel", (event) => {
+  if (!controls.enabled || !controls.enableZoom) return;
+  event.preventDefault();
+  event.stopImmediatePropagation();
+  const offset = camera.position.clone().sub(controls.target);
+  const distance = offset.length();
+  if (distance <= 0) return;
+  const factor = event.deltaY < 0 ? 0.90 : (1 / 0.90);
+  const next = THREE.MathUtils.clamp(distance * factor, controls.minDistance, controls.maxDistance);
+  camera.position.copy(controls.target).addScaledVector(offset, next / distance);
+  controls.update();
+}, { passive: false, capture: true });
+
+scene.add(new THREE.HemisphereLight(0xffffff, 0xd8dde3, 1.1));
+const dir = new THREE.DirectionalLight(0xffffff, 1.25);
+dir.position.set(6000, 12000, 8000);
+scene.add(dir);
+
+let grid = new THREE.GridHelper(20000, 20, 0xc9cfd8, 0xdde2e8);
+grid.position.y = 0;
+scene.add(grid);
+let grid2 = new THREE.GridHelper(20000, 200, 0xe8ecf1, 0xeef1f5);
+grid2.position.y = 1;
+scene.add(grid2);
+
+// solo (branco com leve textura de sombra falsa)
+const groundMat = new THREE.MeshBasicMaterial({ color: 0xf8fafb });
+const ground = new THREE.Mesh(new THREE.PlaneGeometry(40000, 40000), groundMat);
+ground.rotation.x = -Math.PI / 2; ground.position.y = -2;
+scene.add(ground);
+
+// eixos solo (X vermelho / Y verde = profundidade do modelo)
+const axes = new THREE.Group();
+axes.add(new THREE.ArrowHelper(new THREE.Vector3(1, 0, 0), new THREE.Vector3(0, 0, 0), 2500, 0xdc2626, 180, 90));
+axes.add(new THREE.ArrowHelper(new THREE.Vector3(0, 0, -1), new THREE.Vector3(0, 0, 0), 2500, 0x16a34a, 180, 90));
+scene.add(axes);
+
+const tctrl = new TransformControls(camera, renderer.domElement);
+tctrl.setSize(0.75);
+tctrl.addEventListener("dragging-changed", (e) => { controls.enabled = !e.value; });
+tctrl.addEventListener("mouseUp", onGizmoUp);
+scene.add(tctrl);
+
+function resize() {
+  const w = vp.clientWidth, h = vp.clientHeight;
+  renderer.setSize(w, h);
+  camera.aspect = w / h;
+  camera.updateProjectionMatrix();
+}
+new ResizeObserver(resize).observe(vp);
+resize();
+
+(function animate() {
+  requestAnimationFrame(animate);
+  controls.update();
+  renderer.render(scene, camera);
+  const st = $("#vpStats");
+  if (st && MODEL) {
+    const p = MODEL.panel, i = MODEL.installation;
+    st.innerHTML = `<b>${fmt(p.width)}×${fmt(p.height)}×${fmt(p.depth)}</b> mm · PD ${fmt(i.ground_clearance)} · esboço geométrico`;
+  }
+})();
+
+/* ---------------- construção 3D a partir do modelo (JSON do Python) ----- */
+const COLORS = {
+  post: 0x5b6675, vertical: 0x6e7987, horizontal: 0x818d9d,
+  trave: 0x566270, diagonal: 0x98a3b3, plate: 0x707b8a, bolt: 0x8d8578,
+};
+const COL_SELECTED = 0x0f766e;
+const UP = new THREE.Vector3(0, 1, 0);
+
+function clearScene() {
+  for (const [, m] of meshes) { scene.remove(m); m.geometry.dispose(); }
+  meshes.clear();
+  if (panelMesh) { scene.remove(panelMesh); panelMesh.geometry.dispose(); panelMesh = null; }
+  tctrl.detach();
+}
+
+function buildScene(model) {
+  clearScene();
+  for (const el of model.elements) {
+    if (el.type === "panel") { buildPanel(el); continue; }
+    let obj = null;
+    if (el.type === "beam" && el.start && el.end) obj = buildBeam(el);
+    else if (el.type === "plate" && el.center) obj = buildPlate(el);
+    else if (el.type === "bolt" && el.start && el.end) obj = buildBeam(el, true);
+    if (obj) { obj.userData.elementId = el.id; meshes.set(el.id, obj); scene.add(obj); }
+  }
+  const box = new THREE.Box3();
+  for (const [, m] of meshes) box.expandByObject(m);
+  if (panelMesh && panelMesh.visible) box.expandByObject(panelMesh);
+  if (box.isEmpty()) box.set(new THREE.Vector3(-1000, 0, -1000), new THREE.Vector3(1000, 1000, 1000));
+  window.__bbox = box;
+}
+
+function buildBeam(el, thin = false) {
+  const s = new THREE.Vector3(el.start.x, el.start.z, el.start.y);
+  const e = new THREE.Vector3(el.end.x, el.end.z, el.end.y);
+  const d = new THREE.Vector3().subVectors(e, s);
+  const len = d.length() || 1;
+  const prof = PROFILES.find(p => p.name === el.profile);
+  let geo;
+  if (prof && prof.kind === "round") {
+    const r = prof.w / 2;
+    geo = new THREE.CylinderGeometry(r, r, 1, 28);
+    geo.translate(0, 0.5, 0);
+  } else {
+    const w = prof ? Math.max(prof.w, 30) : 40;
+    geo = new THREE.BoxGeometry(w, 1, w);
+    geo.translate(0, 0.5, 0);
+  }
+  const color = COLORS[el.role] ?? 0x7d8896;
+  const mat = new THREE.MeshStandardMaterial({ color, roughness: .55, metalness: .35 });
+  const m = new THREE.Mesh(geo, mat);
+  m.scale.set(1, len, 1);
+  m.position.copy(s);
+  m.quaternion.setFromUnitVectors(UP, d.normalize());
+  return m;
+}
+
+function buildPlate(el) {
+  const geo = new THREE.BoxGeometry(el.size_x, el.size_z, el.size_y);
+  const isConcrete = /LASTRO|CONCRETO/i.test(el.label || "");
+  const m = new THREE.Mesh(geo, new THREE.MeshStandardMaterial({
+    color: isConcrete ? 0xb9b2a4 : COLORS.plate,
+    roughness: isConcrete ? .95 : .5,
+    metalness: isConcrete ? 0 : .4,
+  }));
+  m.position.set(el.center.x, el.center.z, el.center.y);
+  return m;
+}
+
+function buildPanel(el) {
+  const geo = new THREE.PlaneGeometry(el.size_x, el.size_z);
+  panelMesh = new THREE.Mesh(geo, new THREE.MeshBasicMaterial({
+    color: 0x14b8a6, transparent: true, opacity: .12, side: THREE.DoubleSide,
+  }));
+  panelMesh.position.set(el.center.x, el.center.z, el.center.y);
+  scene.add(panelMesh);
+}
+
+/* ------------- ghost (preview translúcido p/ operações da IA) ----------- */
+function buildGhost(el) {
+  let m = null;
+  if ((el.type === "beam" || el.type === "bolt") && el.start && el.end) {
+    m = buildBeam(el);
+  } else if (el.type === "plate" && el.center) {
+    m = buildPlate(el);
+  } else if (el.type === "panel" && el.center) {
+    m = new THREE.Mesh(new THREE.PlaneGeometry(el.size_x, el.size_z),
+      new THREE.MeshBasicMaterial({ color: 0x14b8a6, transparent: true, opacity: .18, side: THREE.DoubleSide }));
+    m.position.set(el.center.x, el.center.z, el.center.y);
+  }
+  if (!m) return null;
+  m.material = new THREE.MeshStandardMaterial({
+    color: 0x14b8a6, transparent: true, opacity: .42, depthWrite: false,
+    roughness: .5, metalness: .2, emissive: 0x0d9488, emissiveIntensity: .25,
+  });
+  return m;
+}
+
+/* ---------------- snap: server (endpoint/meio/aresta/grelha) + interseção
+   client-side + ORTHO (auto/X/Y/Z) --------------------------------------- */
+const snapCfg = { master: true, endpoint: true, center: true, inter: true, edges: true, grid: true };
+let orthoMode = "auto";            // auto | x | y | z | off
+
+function distPointSeg(p, a, b) {
+  const ab = b.clone().sub(a), ap = p.clone().sub(a);
+  const t = Math.max(0, Math.min(1, ap.dot(ab) / Math.max(ab.lengthSq(), 1e-9)));
+  return { t, d: p.distanceTo(a.clone().add(ab.multiplyScalar(t))) };
+}
+function closestPtSegSeg(p1, q1, p2, q2) {
+  const d1 = q1.clone().sub(p1), d2 = q2.clone().sub(p2), r = p1.clone().sub(p2);
+  const a = d1.dot(d1), e = d2.dot(d2), f = d2.dot(r);
+  let s, t;
+  if (a <= 1e-9 && e <= 1e-9) return [p1.clone(), p2.clone()];
+  if (a <= 1e-9) { s = 0; t = Math.max(0, Math.min(1, f / e)); }
+  else {
+    const c = d1.dot(r);
+    if (e <= 1e-9) { t = 0; s = Math.max(0, Math.min(1, -c / a)); }
+    else {
+      const b = d1.dot(d2), denom = a * e - b * b;
+      s = denom > 1e-9 ? Math.max(0, Math.min(1, (b * f - c * e) / denom)) : 0;
+      t = (b * s + f) / e;
+      if (t < 0) { t = 0; s = Math.max(0, Math.min(1, -c / a)); }
+      else if (t > 1) { t = 1; s = Math.max(0, Math.min(1, (b - c) / a)); }
+    }
+  }
+  return [p1.clone().add(d1.multiplyScalar(s)), p2.clone().add(d2.multiplyScalar(t))];
+}
+function intersectionSnap(p) {
+  if (!snapCfg.master || !snapCfg.inter) return null;
+  const segs = [];
+  for (const el of (MODEL?.elements || [])) {
+    if (el.type !== "beam" || !el.start || !el.end) continue;
+    const s = new THREE.Vector3(el.start.x, el.start.z, el.start.y);
+    const e = new THREE.Vector3(el.end.x, el.end.z, el.end.y);
+    if (distPointSeg(p, s, e).d < 420) segs.push([s, e]);
+  }
+  let best = null, bestD = 220;
+  for (let i = 0; i < segs.length; i++) for (let j = i + 1; j < segs.length; j++) {
+    const [c1, c2] = closestPtSegSeg(segs[i][0], segs[i][1], segs[j][0], segs[j][1]);
+    if (c1.distanceTo(c2) < 70) {
+      const mid = c1.add(c2).multiplyScalar(.5);
+      const dp = mid.distanceTo(p);
+      if (dp < bestD) { bestD = dp; best = mid; }
+    }
+  }
+  return best;
+}
+function orthoAdjust(p3) {
+  if (orthoMode === "off" || !ptA) return p3;
+  const d = p3.clone().sub(ptA);
+  let ax = orthoMode;
+  if (ax === "auto") ax = (Math.abs(d.x) >= Math.abs(d.y) && Math.abs(d.x) >= Math.abs(d.z)) ? "x"
+    : (Math.abs(d.y) >= Math.abs(d.z) ? "y" : "z");
+  const q = p3.clone();
+  if (ax !== "x") q.x = ptA.x;
+  if (ax !== "y") q.y = ptA.y;
+  if (ax !== "z") q.z = ptA.z;
+  return q;
+}
+async function snapPipeline(p) {
+  // 1) snap do servidor (extremidade > meio > aresta > grelha), com flags da UI
+  let r;
+  try {
+    r = await api("/api/snap", { method: "POST", body: JSON.stringify({
+      point: { x: p.x, y: p.z, z: p.y },
+      want_grid: snapCfg.master && snapCfg.grid,
+      want_endpoints: snapCfg.master && snapCfg.endpoint,
+      want_centers: snapCfg.master && snapCfg.center,
+      want_edges: snapCfg.master && snapCfg.edges,
+    }) });
+  } catch { r = { point: { x: p.x, y: p.z, z: p.y }, rule: "free", element_id: null }; }
+  const three = new THREE.Vector3(r.point.x, r.point.z, r.point.y);
+  let rule = r.rule, elementId = r.element_id || null;
+  // 2) interseção client-side só se o servidor não achou algo forte
+  if (!rule || rule === "free" || rule === "grid") {
+    const ip = intersectionSnap(p);
+    if (ip) { three.copy(ip); rule = "intersection"; elementId = null; }
+  }
+  return { three, rule, element_id: elementId, model: { x: three.x, y: three.z, z: three.y } };
+}
+
+/* ---------------- modos de interação ------------------------------------ */
+const ray = new THREE.Raycaster();
+const mouse = new THREE.Vector2();
+let downPos = null;
+let mode = "select";   // select|copy|rotate|bar|post|plate|diag|ruler|dim|offset|trim|extend|marquee
+let ptA = null;
+let hoverMesh = null;
+let marqStart = null;
+let trimTarget = null; // {id} (podar/esticar)
+
+const groundPlane = new THREE.Plane(new THREE.Vector3(0, 1, 0), 0);
+
+function pickWorkPoint(e) {
+  const r = renderer.domElement.getBoundingClientRect();
+  mouse.x = ((e.clientX - r.left) / r.width) * 2 - 1;
+  mouse.y = -((e.clientY - r.top) / r.height) * 2 + 1;
+  ray.setFromCamera(mouse, camera);
+  const hits = ray.intersectObjects([...meshes.values()], false);
+  const p = new THREE.Vector3();
+  if (hits.length) p.copy(hits[0].point);
+  else if (!ray.ray.intersectPlane(groundPlane, p)) return null;
+  return p;
+}
+function pickElementId(e) {
+  const r = renderer.domElement.getBoundingClientRect();
+  mouse.x = ((e.clientX - r.left) / r.width) * 2 - 1;
+  mouse.y = -((e.clientY - r.top) / r.height) * 2 + 1;
+  ray.setFromCamera(mouse, camera);
+  const hits = ray.intersectObjects([...meshes.values()], false);
+  return hits.length ? hits[0].object.userData.elementId : null;
+}
+
+/* marcadores auxiliares */
+const markerGeo = new THREE.SphereGeometry(60, 16, 12);
+const markerA = new THREE.Mesh(markerGeo, new THREE.MeshBasicMaterial({ color: 0xd97706 }));
+const markerB = new THREE.Mesh(markerGeo, new THREE.MeshBasicMaterial({ color: 0x0d9488 }));
+const snapDot = new THREE.Mesh(new THREE.SphereGeometry(35, 12, 10),
+  new THREE.MeshBasicMaterial({ color: 0x64748b }));
+markerA.visible = markerB.visible = snapDot.visible = false;
+scene.add(markerA, markerB, snapDot);
+
+const previewMat = new THREE.LineDashedMaterial({ color: 0xd97706, dashSize: 120, gapSize: 80 });
+let previewLine = null;
+
+function updatePreview(target) {
+  if (previewLine) { scene.remove(previewLine); previewLine.geometry.dispose(); previewLine = null; }
+  if (!ptA || !target) return;
+  const g = new THREE.BufferGeometry().setFromPoints([ptA, target]);
+  previewLine = new THREE.Line(g, previewMat);
+  previewLine.computeLineDistances();
+  scene.add(previewLine);
+}
+function clearDraft() {
+  ptA = null;
+  markerA.visible = markerB.visible = snapDot.visible = false;
+  updatePreview(null);
+  $("#vpMeasure").classList.remove("show");
+  trimTarget = null;
+}
+
+/* cotas visuais (referência de sessão — não entram no JSON) */
+const cotaGroup = new THREE.Group();
+scene.add(cotaGroup);
+function makeLabelSprite(text) {
+  const c = document.createElement("canvas"); c.width = 288; c.height = 72;
+  const ctx = c.getContext("2d");
+  ctx.fillStyle = "rgba(255,255,255,.96)";
+  ctx.strokeStyle = "#0d9488"; ctx.lineWidth = 4;
+  const r = 16; ctx.beginPath(); ctx.roundRect(4, 4, 280, 64, r); ctx.fill(); ctx.stroke();
+  ctx.fillStyle = "#0f5f57"; ctx.font = "bold 28px ui-monospace, monospace";
+  ctx.textAlign = "center"; ctx.textBaseline = "middle";
+  ctx.fillText(text, 144, 38);
+  const tex = new THREE.CanvasTexture(c);
+  const spr = new THREE.Sprite(new THREE.SpriteMaterial({ map: tex, depthTest: false }));
+  spr.scale.set(430, 108, 1);
+  return spr;
+}
+function addCota(a3, b3) {
+  const g = new THREE.Group();
+  const mat = new THREE.LineBasicMaterial({ color: 0x0f766e });
+  g.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints([a3, b3]), mat));
+  const tickMat = new THREE.MeshBasicMaterial({ color: 0x0f766e });
+  for (const p of [a3, b3]) {
+    const s = new THREE.Mesh(new THREE.SphereGeometry(45, 12, 10), tickMat);
+    s.position.copy(p); g.add(s);
+  }
+  const dist = a3.distanceTo(b3);
+  const spr = makeLabelSprite(`${fmt(dist)} mm`);
+  spr.position.copy(a3.clone().add(b3).multiplyScalar(.5));
+  g.add(spr);
+  cotaGroup.add(g);
+}
+function clearCotas() { cotaGroup.clear(); }
+
+const MODE_BANNER = {
+  bar: "MODO BARRA — A → B com snap (laranja=ponta · teal=meio · cyan=cruz · Esc sai)",
+  diag: "MODO DIAGONAL — A → B cria barra diagonal entre pontos/elementos · Esc sai",
+  post: "MODO POSTE — clique no solo para cravar um poste (pé-direito atual) · Esc sai",
+  plate: "MODO CHAPA — clique no canto A e depois no canto B (chapa horizontal 10 mm) · Esc sai",
+  ruler: "MODO MEDIR — clique em dois pontos para medir · Esc sai",
+  dim: "MODO COTA — A → B deixa a medida visível na cena (some ao editar) · Esc sai",
+  rotate: "MODO ROTACIONAR — clique num elemento: gira 90° no eixo Z · Shift = −90° · Esc sai",
+  copy: "MODO COPIAR — clique no DESTINO para colar a seleção (pode colar várias vezes) · Esc sai",
+  offset: "MODO PARALELA — clique numa barra: duplica ao lado, do lado do clique · Esc sai",
+  trim: "MODO PODAR — clique na barra, depois no ponto de corte (encurta até a projeção) · Esc sai",
+  extend: "MODO ESTICAR — clique na barra, depois no ponto alvo (leva a ponta até ele) · Esc sai",
+  marquee: "MODO ÁREA — arraste um retângulo para selecionar em lote · Shift adiciona · Esc sai",
+};
+
+function setMode(m) {
+  mode = m;
+  clearDraft();
+  document.querySelectorAll("#toolbar [data-mode]").forEach(c =>
+    c.classList.toggle("on", c.dataset.mode === m));
+  const banner = $("#vpMode");
+  if (MODE_BANNER[m]) {
+    banner.textContent = MODE_BANNER[m];
+    banner.classList.add("show");
+  } else {
+    banner.classList.remove("show");
+    if (gizmoOn && selectedId && meshes.get(selectedId)) tctrl.attach(meshes.get(selectedId));
+  }
+  if (m !== "select") tctrl.detach();
+  $("#barPop").classList.toggle("show", m === "bar" || m === "diag");
+  $("#alignPop").classList.toggle("show", m === "align");
+  $("#distribPop").classList.toggle("show", m === "distrib");
+  $("#mirrorPop").classList.toggle("show", m === "mirror");
+  if (m !== "bar" && m !== "diag" && m !== "ruler" && m !== "dim" && m !== "plate") markerB.visible = false;
+  if ((m === "align" || m === "distrib" || m === "mirror") && multiIds.size < 2)
+    toast("Selecione 2+ elementos primeiro (Shift+clique ou área).", false);
+}
+
+/* hover: realce leve + preview do snap */
+let hoverTimer = 0;
+renderer.domElement.addEventListener("pointermove", async (e) => {
+  if (performance.now() - hoverTimer < 70) return;
+  hoverTimer = performance.now();
+  if (mode === "select") {
+    const r = renderer.domElement.getBoundingClientRect();
+    mouse.x = ((e.clientX - r.left) / r.width) * 2 - 1;
+    mouse.y = -((e.clientY - r.top) / r.height) * 2 + 1;
+    ray.setFromCamera(mouse, camera);
+    const hits = ray.intersectObjects([...meshes.values()], false);
+    const m = hits.length ? hits[0].object : null;
+    if (m !== hoverMesh) {
+      const prevId = hoverMesh?.userData?.elementId;
+      if (hoverMesh && hoverMesh !== meshes.get(selectedId) && !multiIds.has(prevId) && hoverMesh.userData.baseColor) {
+        hoverMesh.material.color.setHex(hoverMesh.userData.baseColor);
+        hoverMesh.material.emissive?.setHex(0x000000);
+      }
+      hoverMesh = m;
+      if (m && m !== meshes.get(selectedId) && !multiIds.has(m.userData.elementId)) {
+        if (!m.userData.baseColor) m.userData.baseColor = m.material.color.getHex();
+        m.material.emissive?.setHex(0x1f2937);
+        m.material.emissiveIntensity = .18;
+      }
+    }
+    return;
+  }
+  const p = pickWorkPoint(e);
+  if (!p) return;
+  const s = await snapPipeline(p);
+  const q = orthoAdjust(s.three);
+  snapDot.position.copy(q);
+  snapDot.visible = true;
+  snapDot.material.color.setHex(
+    s.rule === "endpoint" ? 0xd97706 : s.rule === "center" ? 0x0d9488 :
+    s.rule === "intersection" ? 0x0891b2 : s.rule === "edge" ? 0x7c6bd6 : 0x64748b);
+  if (ptA) { updatePreview(q); if (mode !== "ruler" && mode !== "dim") {} }
+  if ((mode === "ruler" || mode === "dim") && ptA) {
+    const d = ptA.distanceTo(q);
+    const el = $("#vpMeasure");
+    el.textContent = `Δ ${fmt(d)} mm`;
+    el.classList.add("show");
+  }
+});
+
+renderer.domElement.addEventListener("pointerdown", (e) => {
+  downPos = [e.clientX, e.clientY];
+  if (mode === "select" && e.shiftKey && e.button === 0) {
+    marqStart = [e.clientX, e.clientY];
+    controls.enabled = false;
+    const rect = $("#marqueeRect");
+    const vpRect = renderer.domElement.getBoundingClientRect();
+    rect.style.left = (e.clientX - vpRect.left) + "px";
+    rect.style.top = (e.clientY - vpRect.top) + "px";
+    rect.style.width = "0px"; rect.style.height = "0px";
+    rect.style.display = "block";
+  }
+});
+renderer.domElement.addEventListener("pointermove", (e) => {
+  if (!marqStart) return;
+  const rect = $("#marqueeRect");
+  const vpRect = renderer.domElement.getBoundingClientRect();
+  const x0 = Math.min(marqStart[0], e.clientX) - vpRect.left;
+  const y0 = Math.min(marqStart[1], e.clientY) - vpRect.top;
+  rect.style.left = x0 + "px";
+  rect.style.top = y0 + "px";
+  rect.style.width = Math.abs(e.clientX - marqStart[0]) + "px";
+  rect.style.height = Math.abs(e.clientY - marqStart[1]) + "px";
+});
+renderer.domElement.addEventListener("pointerup", async (e) => {
+  try {
+    if (marqStart) {
+      const sx = marqStart[0], sy = marqStart[1];
+      const dx = e.clientX - sx, dy = e.clientY - sy;
+      const wasDrag = Math.hypot(dx, dy) >= 6;
+      marqStart = null;
+      controls.enabled = true;
+      $("#marqueeRect").style.display = "none";
+      if (wasDrag) { await applyMarquee(e, sx, sy, dx, dy); return; }
+    }
+    await handlePointerUp(e);
+  } catch (err) {
+    console.error("pointerup", err);
+    toast("Erro no clique 3D: " + err.message, false);
+  }
+});
+
+/* seleção por retângulo: o teste geométrico roda no core Python */
+function screenRayDir(clientX, clientY) {
+  const r = renderer.domElement.getBoundingClientRect();
+  const nx = ((clientX - r.left) / r.width) * 2 - 1;
+  const ny = -((clientY - r.top) / r.height) * 2 + 1;
+  return new THREE.Vector3(nx, ny, 0.5).unproject(camera)
+    .sub(camera.position).normalize();
+}
+async function applyMarquee(e, sx, sy, dx, dy) {
+  const toModel = v => ({ x: v.x, y: v.z, z: v.y });
+  const corners = [[sx, sy], [sx + dx, sy], [sx + dx, sy + dy], [sx, sy + dy]];
+  const dirs = corners.map(([cx, cy]) => toModel(screenRayDir(cx, cy)));
+  const r = await api("/api/select/marquee", { method: "POST", body: JSON.stringify({
+    origin: toModel(camera.position), dirs,
+  }) });
+  if (r.ids) {
+    selectMany(r.ids, e.shiftKey);
+    if (r.count) toast(`${r.count} elemento(s) na área — lote ativo.`);
+  }
+}
+
+async function handlePointerUp(e) {
+  if (!downPos || tctrl.dragging) return;
+  const dx = e.clientX - downPos[0], dy = e.clientY - downPos[1];
+  if (dx * dx + dy * dy > 25) return;
+  if (e.button !== 0) return;
+  downPos = null;
+
+  const raw = pickWorkPoint(e);
+  if (!raw) return;
+  const s = await snapPipeline(raw);
+
+  if (mode === "select") {
+    const id = pickElementId(e);
+    if (id) select(id, e.shiftKey);
+    else if (!e.shiftKey) deselect();
+    return;
+  }
+
+  if (mode === "copy") { await pasteClipboard(s.three); return; }
+
+  if (mode === "rotate") {
+    const id = pickElementId(e);
+    if (!id) { toast("Clique num elemento para rotacionar.", false); return; }
+    const ang = e.shiftKey ? -90 : 90;
+    const r = await applyOp({ operation: "rotate_element", element_id: id, angle_deg: ang, axis: "z" });
+    if (r) toast(`${id} rotacionado ${ang}° no eixo Z.`);
+    return;
+  }
+
+  if (mode === "bar" || mode === "diag") {
+    if (!ptA) {
+      ptA = s.three.clone();
+      markerA.position.copy(ptA); markerA.visible = true;
+      $("#vpMode").textContent = "agora clique no ponto B (Esc cancela)";
+    } else {
+      const q = orthoAdjust(s.three);
+      const A = { x: ptA.x, y: ptA.z, z: ptA.y };
+      const B = { x: q.x, y: q.z, z: q.y };
+      if (Math.hypot(B.x - A.x, B.y - A.y, B.z - A.z) < 10) { toast("Pontos coincidentes — clique mais longe.", false); return; }
+      const barProf = $("#barProfile")?.value || "METALON_40x40x2";
+      const op = mode === "diag"
+        ? { operation: "add_beam", start: A, end: B, profile: barProf, role: "diagonal", group: "DIAGONAIS" }
+        : { operation: "add_beam", start: A, end: B, profile: barProf, role: "other", group: "ADICIONADOS" };
+      const r = await applyOp(op);
+      if (r) {
+        toast(`Barra ${r.summary.element_id} criada (${fmt(r.summary.length)} mm).`);
+        ptA = s.three.clone();
+        markerA.position.copy(ptA);
+        markerB.visible = snapDot.visible = false;
+        updatePreview(null);
+      }
+    }
+    return;
+  }
+
+  if (mode === "post") {
+    const prof = currentPostProfile();
+    const h = MODEL?.installation?.ground_clearance || 3000;
+    const r = await applyOp({ operation: "add_post", x: s.model.x, y: s.model.y, profile: prof, height: h });
+    if (r) toast(`Poste ${r.summary.element_id} criado em X=${fmt(s.model.x)} · Y=${fmt(s.model.y)} (h ${fmt(h)} mm).`);
+    return;
+  }
+
+  if (mode === "plate") {
+    if (!ptA) {
+      ptA = s.three.clone();
+      markerA.position.copy(ptA); markerA.visible = true;
+      $("#vpMode").textContent = "MODO CHAPA — agora clique no canto B (Esc cancela)";
+    } else {
+      const A3 = ptA, B3 = s.three;
+      const sx2 = Math.abs(B3.x - A3.x), sy2 = Math.abs(B3.z - A3.z);
+      if (sx2 < 20 || sy2 < 20) { toast("Chapa muito pequena (mínimo 20 mm por lado).", false); return; }
+      const center = { x: (A3.x + B3.x) / 2, y: (A3.z + B3.z) / 2, z: (A3.y + B3.y) / 2 };
+      const r = await applyOp({ operation: "add_plate", center, size_x: sx2, size_y: sy2, size_z: 10, label: "CHAPA" });
+      if (r) toast(`Chapa ${r.summary.element_id} criada (${fmt(sx2)}×${fmt(sy2)}×10 mm).`);
+      clearDraft();
+    }
+    return;
+  }
+
+  if (mode === "ruler" || mode === "dim") {
+    if (!ptA) {
+      ptA = s.three.clone();
+      markerA.position.copy(ptA); markerA.visible = true;
+      $("#vpMode").textContent = "agora clique no segundo ponto (Esc cancela)";
+    } else {
+      const ptB = orthoAdjust(s.three);
+      markerB.position.copy(ptB); markerB.visible = true;
+      const d = ptA.distanceTo(ptB);
+      const el = $("#vpMeasure");
+      el.textContent = `Δ ${fmt(d)} mm  (X ${fmt(Math.abs(ptB.x - ptA.x))} · Y ${fmt(Math.abs(ptB.y - ptA.y))} · Z ${fmt(Math.abs(ptB.z - ptA.z))})`;
+      el.classList.add("show");
+      if (mode === "dim") { addCota(ptA.clone(), ptB.clone()); toast("Cota adicionada à cena (referência visual)."); }
+      updatePreview(ptB);
+      ptA = null;
+    }
+    return;
+  }
+
+  if (mode === "offset") {
+    const id = pickElementId(e);
+    if (!id) { toast("Clique numa barra para criar a paralela.", false); return; }
+    const el = MODEL.elements.find(x => x.id === id);
+    if (!el || !el.start || !el.end) { toast("Paralela funciona em barras.", false); return; }
+    const s3 = new THREE.Vector3(el.start.x, el.start.z, el.start.y);
+    const e3 = new THREE.Vector3(el.end.x, el.end.z, el.end.y);
+    const d = e3.clone().sub(s3).normalize();
+    let n;
+    if (Math.abs(d.y) > 0.9) n = new THREE.Vector3(1, 0, 0);
+    else n = new THREE.Vector3().crossVectors(d, new THREE.Vector3(0, 1, 0)).normalize();
+    const v = s.three.clone().sub(s3);
+    const side = Math.sign(v.dot(n)) || 1;
+    const prof = PROFILES.find(p => p.name === el.profile);
+    const w = ((prof?.w || 40)) + 50;
+    const delta = n.multiplyScalar(side * w);
+    const r = await applyOp({ operation: "duplicate_element", element_id: id,
+      delta_x: delta.x, delta_y: delta.z, delta_z: delta.y });
+    if (r) toast(`Paralela ${r.summary.element_id} criada (${fmt(w)} mm ao lado).`);
+    return;
+  }
+
+  if (mode === "trim" || mode === "extend") {
+    if (!trimTarget) {
+      const id = pickElementId(e);
+      const el = id && MODEL.elements.find(x => x.id === id);
+      if (!el || el.type !== "beam") { toast("Clique numa BARRA primeiro.", false); return; }
+      trimTarget = { id };
+      $("#vpMode").textContent = `barra ${id} marcada — agora clique no ponto ${mode === "trim" ? "de corte" : "alvo"}`;
+      return;
+    }
+    const el = MODEL.elements.find(x => x.id === trimTarget.id);
+    if (!el) { clearDraft(); return; }
+    const A = { x: el.start.x, y: el.start.y, z: el.start.z };
+    const B = { x: el.end.x, y: el.end.y, z: el.end.z };
+    const P = s.model;
+    const ab = [B.x - A.x, B.y - A.y, B.z - A.z];
+    const ab2 = ab[0] * ab[0] + ab[1] * ab[1] + ab[2] * ab[2] || 1;
+    const t = Math.max(0, Math.min(1.6, ((P.x - A.x) * ab[0] + (P.y - A.y) * ab[1] + (P.z - A.z) * ab[2]) / ab2));
+    if (mode === "trim" && (t < 0.02 || t > 0.98)) { toast("Ponto fora da barra — podar (trim) só encurta.", false); return; }
+    const Q = { x: A.x + ab[0] * t, y: A.y + ab[1] * t, z: A.z + ab[2] * t };
+    const op = t < 0.5
+      ? { operation: "set_position", element_id: el.id, start: Q }
+      : { operation: "set_position", element_id: el.id, end: Q };
+    const oldLen = Math.sqrt(ab2);
+    const fixed = t < 0.5 ? B : A;
+    const newLen = Math.hypot(Q.x - fixed.x, Q.y - fixed.y, Q.z - fixed.z);
+    const r = await applyOp(op);
+    if (r) toast(`${el.id} ${mode === "trim" ? "podada" : "esticada"} — ${fmt(oldLen)} → ${fmt(newLen)} mm.`);
+    clearDraft();
+    return;
+  }
+}
+
+function exitModes() { setMode("select"); clearDraft(); }
+
+/* ---------------- seleção ---------------- */
+function highlight(id, on, kind = "sel") {
+  const m = meshes.get(id);
+  if (!m || !m.material) return;
+  if (on) {
+    if (!m.userData.baseColor) m.userData.baseColor = m.material.color.getHex();
+    m.material.color.setHex(kind === "sel" ? COL_SELECTED : 0x14b8a6);
+    m.material.emissive?.setHex(kind === "sel" ? 0x99f6e4 : 0x5eead4);
+    m.material.emissiveIntensity = .35;
+  } else {
+    m.material.emissive?.setHex(0x000000);
+    m.material.emissiveIntensity = 1;
+    if (m.userData.baseColor) m.material.color.setHex(m.userData.baseColor);
+  }
+}
+
+function select(id, additive = false) {
+  if (additive) {
+    if (selectedId && selectedId !== id) {
+      multiIds.add(selectedId);
+      highlight(selectedId, true, "multi");
+      const pm = meshes.get(selectedId);
+      if (pm) { pm.material.emissive?.setHex(0x5eead4); }
+      selectedId = null;
+      tctrl.detach();
+    }
+    if (multiIds.has(id)) {
+      multiIds.delete(id);
+      highlight(id, false);
+    } else {
+      highlight(id, true, "multi");
+      multiIds.add(id);
+    }
+    if (multiIds.size === 1) { const only = [...multiIds][0]; multiIds.clear(); highlight(only, false); updateMultiChip(); return select(only); }
+    updateMultiChip(); renderProps(); renderDrawer(); renderSuggestions(); updateCtxChips();
+    return;
+  }
+  if (multiIds.size) clearMulti(true);
+  if (selectedId) highlight(selectedId, false);
+  selectedId = id;
+  if (id && meshes.get(id)) {
+    highlight(id, true, "sel");
+    if (gizmoOn) { meshes.get(id).userData.origPos = meshes.get(id).position.clone(); tctrl.attach(meshes.get(id)); }
+  }
+  renderProps(); renderDrawer(); renderSuggestions(); updateCtxChips();
+}
+
+function updateMultiChip() {
+  const chip = $("#mselCount");
+  if (multiIds.size >= 2) {
+    chip.textContent = `${multiIds.size} selecionados · Shift+clique add/remove · Del exclui o lote`;
+    chip.classList.add("show");
+  } else chip.classList.remove("show");
+}
+
+function clearMulti(skipRender = false) {
+  for (const id of multiIds) highlight(id, false);
+  multiIds.clear();
+  updateMultiChip();
+  if (!skipRender) { renderProps(); renderDrawer(); renderSuggestions(); updateCtxChips(); }
+}
+
+function selectMany(ids, additive = false) {
+  if (!additive) {
+    clearMulti(true);
+    if (selectedId) { highlight(selectedId, false); selectedId = null; }
+    tctrl.detach();
+  }
+  for (const id of ids) {
+    if (id === selectedId || multiIds.has(id)) continue;
+    if (!meshes.get(id)) continue;
+    highlight(id, true, "multi");
+    multiIds.add(id);
+  }
+  if (multiIds.size === 1) { const only = [...multiIds][0]; multiIds.clear(); highlight(only, false); updateMultiChip(); return select(only); }
+  updateMultiChip(); renderProps(); renderDrawer(); renderSuggestions(); updateCtxChips();
+}
+
+function deselect() {
+  if (multiIds.size) clearMulti(true);
+  if (selectedId) { highlight(selectedId, false); }
+  selectedId = null;
+  tctrl.detach();
+  updateMultiChip();
+  renderProps(); renderDrawer(); renderSuggestions(); updateCtxChips();
+}
+
+function onGizmoUp() {
+  const m = meshes.get(selectedId);
+  if (!m || !m.userData.origPos) return;
+  const p = m.position, o = m.userData.origPos;
+  const dx = p.x - o.x, dyM = p.z - o.z, dzM = p.y - o.y;
+  m.userData.origPos = null;
+  if (Math.abs(dx) + Math.abs(dyM) + Math.abs(dzM) < 1) return;
+  applyOp({ operation: "move_element", element_id: selectedId, delta_x: dx, delta_y: dyM, delta_z: dzM })
+    .then(() => toast(`Elemento movido (ΔX ${fmt(dx)}, ΔY ${fmt(dyM)}, ΔZ ${fmt(dzM)} mm)`));
+}
+
+/* ---------------- vistas de câmera (mesmo viewport) --------------------- */
+function focusView(kind) {
+  let box;
+  if (kind === "selection" && selectedId && meshes.get(selectedId)) {
+    box = new THREE.Box3().setFromObject(meshes.get(selectedId));
+    if (box.isEmpty()) box = window.__bbox;
+  }
+  box = box || window.__bbox || new THREE.Box3().setFromObject(scene);
+  const c = box.getCenter(new THREE.Vector3());
+  const size = box.getSize(new THREE.Vector3());
+  const R = Math.max(size.x, size.y, size.z) * 1.9 + 1500;
+
+  // OrbitControls usa a distância ao alvo para o zoom. Sem limites, a rolagem
+  // pode atravessar a geometria ou afastá-la tanto que parece ter desaparecido.
+  // Mantemos os limites proporcionais ao esboço atualmente em tela.
+  controls.minDistance = Math.max(250, R * 0.12);
+  controls.maxDistance = Math.max(12000, R * 4);
+  camera.near = Math.max(1, R / 1000);
+  camera.far = Math.max(100000, R * 20);
+  camera.updateProjectionMatrix();
+  controls.target.copy(c);
+  if (kind === "free" || kind === "iso" || kind === "selection") camera.position.set(c.x + R * .75, c.y + R * .62, c.z + R * .9);
+  else if (kind === "FRONTAL") camera.position.set(c.x, c.y, c.z + R);
+  else if (kind === "TRASEIRA") camera.position.set(c.x, c.y, c.z - R);
+  else if (kind === "DIREITA") camera.position.set(c.x + R, c.y, c.z);
+  else if (kind === "ESQUERDA") camera.position.set(c.x - R, c.y, c.z);
+  else if (kind === "SUPERIOR") camera.position.set(c.x, c.y + R, c.z + 1);
+  else if (kind === "INFERIOR") camera.position.set(c.x, c.y - R, c.z + 1);
+  controls.update();
+}
+document.querySelectorAll("#viewbar .vbtn").forEach(btn => {
+  btn.addEventListener("click", () => {
+    document.querySelectorAll("#viewbar .vbtn").forEach(b => b.classList.remove("on"));
+    btn.classList.add("on");
+    currentView = btn.dataset.view;
+    updateCtxChips();
+    focusView(btn.dataset.view);
+  });
+});
+
+/* ---------------- gizmo mover ---------------- */
+let gizmoOn = false;
+$("#toolMove").addEventListener("click", (e) => {
+  gizmoOn = !gizmoOn;
+  e.currentTarget.classList.toggle("on", gizmoOn);
+  if (gizmoOn) {
+    if (mode !== "select") setMode("select");
+    if (selectedId && meshes.get(selectedId)) {
+      const m = meshes.get(selectedId);
+      m.userData.origPos = m.position.clone();
+      tctrl.attach(m);
+      tctrl.setMode("translate");
+    } else toast("Selecione um elemento para mover com o gizmo.", false);
+  } else tctrl.detach();
+});
+
+/* ---------------- ferramentas de lote/elemento --------------------------- */
+function currentPostProfile() {
+  const post = MODEL?.elements?.find(e => e.role === "post");
+  return post?.profile || "TUBO_219x4.75";
+}
+$("#toolDup").addEventListener("click", async () => {
+  if (multiIds.size >= 2) {
+    const r = await applyOp({ operation: "multi_duplicate", element_ids: [...multiIds], delta_x: 300 });
+    if (r) toast(`${r.summary.count} elemento(s) duplicados.`);
+  } else if (selectedId) {
+    const r = await applyOp({ operation: "duplicate_element", element_id: selectedId, delta_x: 300 });
+    if (r) toast(`Duplicado como ${r.summary.element_id}.`);
+  } else toast("Selecione um elemento para duplicar.", false);
+});
+$("#toolDel").addEventListener("click", async () => {
+  if (multiIds.size >= 2) {
+    const r = await applyOp({ operation: "multi_delete", element_ids: [...multiIds] });
+    if (r) toast(`${r.summary.count} elemento(s) excluídos.`);
+  } else if (selectedId) {
+    await applyOp({ operation: "delete_element", element_id: selectedId });
+  } else toast("Selecione um elemento para excluir.", false);
+});
+$("#toolUndo").addEventListener("click", doUndo);
+$("#toolRedo").addEventListener("click", doRedo);
+
+/* COPIAR → colar no destino (lote com 1 undo só) */
+async function pasteClipboard(target3) {
+  if (!clipboardIds.length) return;
+  const els = clipboardIds.map(id => MODEL.elements.find(e => e.id === id)).filter(Boolean);
+  if (!els.length) return;
+  const box = new THREE.Box3();
+  const toThree = v => v && new THREE.Vector3(v.x, v.z, v.y);
+  for (const el of els) {
+    if (el.start) { box.expandByPoint(toThree(el.start)); box.expandByPoint(toThree(el.end)); }
+    if (el.center) box.expandByPoint(toThree(el.center));
+  }
+  if (box.isEmpty()) return;
+  const c = box.getCenter(new THREE.Vector3());
+  const d3 = target3.clone().sub(c);
+  const ops = els.map(el => ({ operation: "duplicate_element", element_id: el.id,
+    delta_x: d3.x, delta_y: d3.z, delta_z: d3.y }));
+  try {
+    await applyOps(ops, "editor");
+    toast(`${ops.length} elemento(s) colados (1 passo de undo).`);
+    setMode("copy"); // mantém o modo p/ colar de novo
+  } catch (err) { toast(err.message, false); }
+}
+
+async function doUndo() {
+  try {
+    const r = await api("/api/undo", { method: "POST" });
+    adopt(r);
+    const last = opsStack.pop();
+    if (last) redoStack.push(last);
+    updateUndoRedo();
+    toast("Desfeito.");
+  } catch (e) { toast(e.message, false); }
+}
+async function doRedo() {
+  const entry = redoStack.pop();
+  if (!entry) { toast("Nada para refazer.", false); return; }
+  if (entry.batch) {
+    try { await applyOps(entry.ops, "ia"); toast("Refeito."); }
+    catch (e) { toast(e.message, false); }
+  }
+  else { const r = await applyOp(entry, { fromRedo: true }); if (r) toast("Refeito."); }
+  updateUndoRedo();
+}
+function updateUndoRedo() {
+  $("#toolRedo").style.opacity = redoStack.length ? "" : ".35";
+}
+
+document.querySelectorAll("#toolbar [data-mode]").forEach(chip =>
+  chip.addEventListener("click", () => setMode(chip.dataset.mode)));
+
+/* popovers de organização (alinhar / distribuir / espelhar) */
+$("#alGo").addEventListener("click", async () => {
+  if (multiIds.size < 2 && !selectedId) { toast("Selecione 2+ elementos.", false); return; }
+  const ids = multiIds.size >= 2 ? [...multiIds] : [selectedId];
+  try {
+    const r = await applyOps([{ operation: "align_elements", element_ids: ids,
+      axis: $("#alAxis").value, anchor: $("#alAnchor").value }], "editor");
+    toast(`Alinhados: ${r.summary.count} elemento(s) movidos.`);
+  } catch (e) { toast(e.message, false); }
+});
+$("#dsGo").addEventListener("click", async () => {
+  if (multiIds.size < 3) { toast("Selecione 3+ elementos (Shift+clique).", false); return; }
+  try {
+    const r = await applyOps([{ operation: "distribute_elements", element_ids: [...multiIds],
+      axis: $("#dsAxis").value }], "editor");
+    toast(`Distribuídos: ${r.summary.count} elemento(s) movidos.`);
+  } catch (e) { toast(e.message, false); }
+});
+$("#miGo").addEventListener("click", async () => {
+  if (multiIds.size < 1 && !selectedId) { toast("Selecione elementos para espelhar.", false); return; }
+  const ids = multiIds.size >= 1 ? [...multiIds] : [selectedId];
+  try {
+    const r = await applyOps([{ operation: "mirror_elements", element_ids: ids,
+      plane: $("#miAxis").value, pivot: parseFloat($("#miPivot").value) || 0,
+      copy: $("#miCopy").checked }], "editor");
+    toast(`Espelhado: ${r.summary.count} elemento(s).`);
+  } catch (e) { toast(e.message, false); }
+});
+
+/* ---------------- snapbar ---------------- */
+document.querySelectorAll("#snapbar [data-snap]").forEach(btn => {
+  btn.addEventListener("click", () => {
+    const k = btn.dataset.snap;
+    snapCfg[k] = !snapCfg[k];
+    btn.classList.toggle("on", snapCfg[k]);
+  });
+});
+document.querySelectorAll("#snapbar [data-ortho]").forEach(btn => {
+  btn.addEventListener("click", () => {
+    const k = btn.dataset.ortho;
+    orthoMode = (orthoMode === k) ? "off" : k;
+    document.querySelectorAll("#snapbar [data-ortho]").forEach(b =>
+      b.classList.toggle("on", b.dataset.ortho === orthoMode));
+  });
+});
+$("#panelVis").addEventListener("click", (e) => {
+  if (panelMesh) {
+    panelMesh.visible = !panelMesh.visible;
+    e.currentTarget.classList.toggle("on", panelMesh.visible);
+  }
+});
+
+/* ---------------- aplicar operações / adotar modelo --------------------- */
+async function applyOp(op, opts = {}) {
+  try {
+    const body = { operation: op.operation, element_id: op.element_id ?? null, payload: {} };
+    for (const k of ["start", "end", "center", "delta_x", "delta_y", "delta_z", "profile", "x", "y",
+                     "height", "element_ids", "value", "size_x", "size_y", "size_z", "label",
+                     "role", "group", "angle_deg", "axis", "length", "anchor"])
+      if (op[k] !== undefined) body[k] = op[k];
+    const payload = await api("/api/operations", { method: "POST", body: JSON.stringify(body) });
+    adopt(payload);
+    if (!opts.fromRedo) { opsStack.push(op); redoStack.length = 0; }
+    else opsStack.push(op);
+    updateUndoRedo();
+    return payload;
+  } catch (e) { toast(e.message, false); }
+}
+
+/* LOTE (IA ou editor): 1 snapshot de undo só — histórico unificado.
+   Erros SÃO PROPAGADOS (o chamador decide o que mostrar ao usuário). */
+async function applyOps(ops, action = "ia") {
+  if (!ops?.length) throw new Error("Nenhuma operação para aplicar.");
+  const payload = await api("/api/ops/apply", { method: "POST",
+    body: JSON.stringify({ operations: ops, action }) });
+  adopt(payload);
+  opsStack.push({ batch: true, ops });
+  redoStack.length = 0;
+  updateUndoRedo();
+  return payload;
+}
+
+function adopt(payload) {
+  MODEL = payload.model;
+  BOM = payload.bom;
+  multiIds.clear(); updateMultiChip();
+  clearPreview();
+  clearCotas();
+  buildScene(MODEL);
+  if (selectedId && !MODEL.elements.find(e => e.id === selectedId)) selectedId = null;
+  if (selectedId && meshes.get(selectedId)) {
+    highlight(selectedId, true, "sel");
+    if (gizmoOn) { const m = meshes.get(selectedId); m.userData.origPos = m.position.clone(); tctrl.attach(m); }
+  }
+  renderProps();
+  renderDrawer();
+  renderSuggestions();
+  updateCtxChips();
+  if (payload.can_undo !== undefined) $("#toolUndo").style.opacity = payload.can_undo ? "" : ".35";
+}
+
+/* ---------------- PREVIEW das operações da IA --------------------------- */
+let pendingPlan = null;
+let previewGroup = null;
+const previewTints = new Map();
+
+function renderPlanPreview(plan) {
+  clearPreview();
+  pendingPlan = plan;
+  previewGroup = new THREE.Group();
+  const d = plan.preview || { added: [], removed: [], changed: [] };
+  for (const el of d.added) { const g = buildGhost(el); if (g) previewGroup.add(g); }
+  for (const ch of d.changed) {
+    const g = buildGhost(ch.after);
+    if (g) previewGroup.add(g);
+    tintOriginal(ch.id, "edit");
+  }
+  for (const el of d.removed) tintOriginal(el.id, "del");
+  scene.add(previewGroup);
+  const c = d.counts || { add: 0, edit: 0, del: 0, total: 0 };
+  $("#pvTitle").textContent = `✨ ${c.total} alteração(ões) proposta(s)`;
+  $("#pvDetail").textContent = `${c.add} novas · ${c.edit} editadas · ${c.del} removidas`;
+  $("#previewBar").classList.add("show");
+}
+function tintOriginal(id, kind) {
+  const m = meshes.get(id);
+  if (!m || !m.material) return;
+  previewTints.set(id, {
+    color: m.material.color.getHex(),
+    emissive: m.material.emissive ? m.material.emissive.getHex() : 0,
+    opacity: m.material.opacity, transparent: m.material.transparent,
+  });
+  m.material.transparent = true;
+  if (kind === "del") { m.material.color.setHex(0xdc2626); m.material.emissive?.setHex(0x7f1d1d); m.material.opacity = .85; }
+  else { m.material.color.setHex(0xd97706); m.material.emissive?.setHex(0x78350f); m.material.opacity = .9; }
+}
+function clearPreview() {
+  if (previewGroup) {
+    for (const ch of [...previewGroup.children]) { ch.geometry?.dispose(); ch.material?.dispose?.(); }
+    scene.remove(previewGroup);
+    previewGroup = null;
+  }
+  for (const [id, t] of previewTints) {
+    const m = meshes.get(id);
+    if (m && m.material) {
+      m.material.color.setHex(t.color);
+      m.material.emissive?.setHex(t.emissive);
+      m.material.opacity = t.opacity;
+      m.material.transparent = t.transparent;
+    }
+  }
+  previewTints.clear();
+  $("#previewBar").classList.remove("show");
+  pendingPlan = null;
+}
+$("#pvApply").addEventListener("click", applyPlan);
+$("#pvCancel").addEventListener("click", () => {
+  clearPreview();
+  pushMsg("ai", "Preview cancelado — nada foi alterado.", "copiloto");
+});
+async function applyPlan() {
+  if (!pendingPlan) return;
+  // Guardar o plano antes de limpar o preview: clearPreview/adopt zeram
+  // pendingPlan. Sem esta cópia, o lote era aplicado com sucesso e o front
+  // lançava um TypeError ao tentar ler pendingPlan.preview depois.
+  const plan = pendingPlan;
+  const ops = plan.operations || [];
+  clearPreview();
+  try {
+    await applyOps(ops, "ia");
+    pushMsg("ai", `✅ Aplicado: ${ops.length} operação(ões). Ctrl+Z desfaz o lote inteiro.`, "copiloto");
+    toast(`Conexão ativa: ${ACTIVE_AI_NAME || "—"}`);
+  } catch (e) {
+    pushMsg("err", `Não foi possível aplicar a proposta: ${errorText(e)}.`, "erro");
+  }
+}
+
+/* ---------------- inspector contextual (com edição numérica) ------------ */
+const ROLE_OPTS = ["vertical", "horizontal", "trave", "diagonal", "post", "plate", "base", "bolt", "other"];
+function elLen(el) {
+  if (!el?.start || !el?.end) return 0;
+  return Math.hypot(el.end.x - el.start.x, el.end.y - el.start.y, el.end.z - el.start.z);
+}
+function vecInputs(prefix, v) {
+  return `<input class="pi" id="${prefix}x" type="number" step="1" value="${Math.round(v?.x ?? 0)}">
+          <input class="pi" id="${prefix}y" type="number" step="1" value="${Math.round(v?.y ?? 0)}">
+          <input class="pi" id="${prefix}z" type="number" step="1" value="${Math.round(v?.z ?? 0)}">`;
+}
+function geometryName(el) {
+  if (el.type === "plate") return "Chapa geométrica";
+  if (el.type === "panel") return "Painel de referência";
+  return ({ post: "Poste", vertical: "Barra vertical", horizontal: "Barra horizontal",
+    diagonal: "Barra diagonal", trave: "Travessa", bolt: "Fixação" }[el.role] || "Barra");
+}
+function renderProps() {
+  const box = $("#propFloat");
+  if (!selectedId && multiIds.size < 2) { box.classList.remove("show"); return; }
+  box.classList.add("show");
+  if (multiIds.size >= 2) return renderBatch(box);
+  const el = MODEL?.elements.find(e => e.id === selectedId);
+  if (!el) { box.classList.remove("show"); return; }
+  $("#pfId").textContent = el.id;
+  const isBeam = el.type === "beam" || el.type === "bolt";
+  let html = `<div class="pf-sub">${geometryName(el)} · grupo: ${el.group || "—"}</div>`;
+  html += `<div class="pi-row"><label>Papel</label>
+    <select id="piRole">${ROLE_OPTS.map(r =>
+      `<option value="${r}" ${r === el.role ? "selected" : ""}>${r}</option>`).join("")}
+    </select></div>`;
+  html += `<div class="pi-row"><label>Grupo</label><input id="piGroup" type="text" value="${(el.group || "").replace(/"/g, "&quot;")}"></div>`;
+
+  if (isBeam && el.start && el.end) {
+    const len = elLen(el);
+    html += `<div class="pi-vec"><em>A</em>${vecInputs("piS", el.start)}</div>`;
+    html += `<div class="pi-vec"><em>B</em>${vecInputs("piE", el.end)}</div>`;
+    html += `<div class="pi-row"><label>Compr.</label>
+      <input class="pi" id="piLen" type="number" step="1" value="${Math.round(len)}">
+      <span style="font-size:9.5px;color:var(--muted)">mm</span></div>`;
+    if (el.role === "post" && el.start.z >= -.5 && el.start.z <= 100 &&
+        Math.abs(el.start.x - el.end.x) < .5 && Math.abs(el.start.y - el.end.y) < .5) {
+      html += `<div class="note" style="margin-top:7px">Altura vinculada: ao alterar este poste, toda a estrutura apoiada acima acompanha automaticamente.</div>`;
+    }
+  } else if (el.center) {
+    html += `<div class="pi-vec"><em>C</em>${vecInputs("piC", el.center)}</div>`;
+    if (el.type === "plate")
+      html += `<div class="pi-row"><label>Tamanho</label>
+        <input class="pi" id="piSzx" type="number" step="1" value="${Math.round(el.size_x)}">
+        <input class="pi" id="piSzy" type="number" step="1" value="${Math.round(el.size_y)}">
+        <input class="pi" id="piSzz" type="number" step="1" value="${Math.round(el.size_z)}"></div>`;
+  }
+  $("#pfBody").innerHTML = html;
+  $("#pfActions").innerHTML = `
+    <button class="btn primary" id="pfApply">✓ Aplicar</button>
+    <button class="btn" id="pfDup">⧉</button>
+    <button class="btn danger" id="pfDel">🗑</button>`;
+  $("#pfApply").addEventListener("click", applyInspector);
+  $("#pfDup").addEventListener("click", () => $("#toolDup").click());
+  $("#pfDel").addEventListener("click", () => $("#toolDel").click());
+  for (const inp of $("#pfBody").querySelectorAll("input"))
+    inp.addEventListener("keydown", (ev) => { if (ev.key === "Enter") applyInspector(); });
+}
+
+async function applyInspector() {
+  const el = MODEL?.elements.find(e => e.id === selectedId);
+  if (!el) return;
+  const ops = [];
+  const nr = $("#piRole")?.value;
+  if (nr && nr !== el.role) ops.push({ operation: "set_role", element_id: el.id, role: nr });
+  const ng = $("#piGroup")?.value.trim();
+  if (ng !== undefined && ng !== (el.group || "")) ops.push({ operation: "set_group", element_id: el.id, group: ng });
+  if (el.type === "beam" && el.start && el.end) {
+    const s = { x: +$("#piSx").value, y: +$("#piSy").value, z: +$("#piSz").value };
+    const e2 = { x: +$("#piEx").value, y: +$("#piEy").value, z: +$("#piEz").value };
+    const geoChanged = ["x", "y", "z"].some(a =>
+      Math.abs(s[a] - el.start[a]) > .5 || Math.abs(e2[a] - el.end[a]) > .5);
+    const lenVal = parseFloat($("#piLen")?.value);
+    const isGroundPost = el.role === "post" && el.start.z >= -.5 && el.start.z <= 100 &&
+      Math.abs(el.start.x - el.end.x) < .5 && Math.abs(el.start.y - el.end.y) < .5;
+    const xyUnchanged = Math.abs(s.x - el.start.x) < .5 && Math.abs(s.y - el.start.y) < .5 &&
+      Math.abs(e2.x - el.end.x) < .5 && Math.abs(e2.y - el.end.y) < .5 &&
+      Math.abs(s.z - el.start.z) < .5;
+    const requestedHeight = geoChanged ? e2.z - s.z : lenVal;
+    const currentHeight = el.end.z - el.start.z;
+    if (isGroundPost && xyUnchanged && requestedHeight > 0 &&
+        Math.abs(requestedHeight - currentHeight) > .5)
+      ops.push({ operation: "set_post_height", element_id: el.id, height: requestedHeight });
+    else if (geoChanged) ops.push({ operation: "set_position", element_id: el.id, start: s, end: e2 });
+    else if (lenVal && Math.abs(lenVal - elLen(el)) > .5)
+      ops.push({ operation: "resize_element", element_id: el.id, length: lenVal });
+  } else if (el.center) {
+    const c = { x: +$("#piCx").value, y: +$("#piCy").value, z: +$("#piCz").value };
+    if (["x", "y", "z"].some(a => Math.abs(c[a] - el.center[a]) > .5))
+      ops.push({ operation: "set_position", element_id: el.id, center: c });
+    if (el.type === "plate") {
+      const sizes = { size_x: +$("#piSzx").value, size_y: +$("#piSzy").value, size_z: +$("#piSzz").value };
+      if (["size_x", "size_y", "size_z"].some(k => Math.abs(sizes[k] - el[k]) > .5))
+        ops.push({ operation: "resize_element", element_id: el.id, ...sizes });
+    }
+  }
+  if (!ops.length) { toast("Nada alterado no inspector."); return; }
+  const r = await applyOps(ops, "editor");
+  if (r) toast(`Inspector: ${ops.length} alteração(ões) aplicada(s) (1 undo).`);
+}
+
+$("#pfRename").addEventListener("click", async () => {
+  const el = MODEL?.elements.find(e => e.id === selectedId);
+  if (!el) return;
+  const nid = prompt(`Novo ID para ${el.id}:`, el.id);
+  if (!nid || nid.trim().toUpperCase() === el.id) return;
+  const r = await applyOps([{ operation: "rename_element", element_id: el.id, new_id: nid.trim() }], "editor");
+  if (r) toast(`Renomeado para ${nid.trim().toUpperCase()}.`);
+});
+
+function renderBatch(box) {
+  const ids = [...multiIds];
+  $("#pfId").textContent = `${ids.length} elementos`;
+  $("#pfBody").innerHTML = `
+    <div class="pf-sub">lote — Shift+clique adiciona/remove</div>
+    <div style="display:flex;flex-wrap:wrap;gap:4px;max-height:110px;overflow-y:auto">
+      ${ids.map(id => `<span class="chip">${id}</span>`).join("")}
+    </div>`;
+  $("#pfActions").innerHTML = `
+    <button class="btn" id="pfDup">⧉ Duplicar lote</button>
+    <button class="btn danger" id="pfDel">🗑 Excluir lote</button>`;
+  $("#pfDup").addEventListener("click", () => $("#toolDup").click());
+  $("#pfDel").addEventListener("click", () => $("#toolDel").click());
+}
+$("#pfClose").addEventListener("click", () => { if (multiIds.size) clearMulti(); else deselect(); });
+
+/* ---------------- drawer de elementos ---------------- */
+function groupLabel(g) {
+  const s = String(g).toUpperCase();
+  if (s.includes("GABINET")) return "Gabinetes";
+  if (s.includes("GAIOLA")) return "Gaiola";
+  if (s.includes("POSTE")) return "Postes";
+  if (s.includes("PASSARELA")) return "Passarela";
+  if (s.includes("GUARDA") || s.includes("CORRIM")) return "Guarda-corpo";
+  if (s.includes("CHAPA") || s.includes("PLACA") || s.includes("BASE")) return "Chapas";
+  if (s.includes("QUADRO") || s.includes("MOLDURA") || s.includes("MOLDU") || s.includes("MARC")) return "Quadro";
+  if (s.includes("DIAGON")) return "Diagonais";
+  if (s.includes("TRELI")) return "Treliça";
+  if (s.includes("TRAVE")) return "Travessas";
+  if (s.includes("TIRANTE")) return "Tirantes";
+  if (s.includes("ESCADA") || s.includes("DEGRAU")) return "Escada";
+  return g.charAt(0) + g.slice(1).toLowerCase();
+}
+const GROUP_ORDER = ["Gabinetes", "Gaiola", "Postes", "Passarela", "Guarda-corpo", "Chapas",
+  "Quadro", "Travessas", "Diagonais", "Treliça", "Tirantes", "Escada"];
+
+function renderDrawer() {
+  const dr = $("#drawer");
+  if (!dr.classList.contains("open") || !MODEL) return;
+  const groups = {};
+  for (const el of MODEL.elements) {
+    if (el.type === "panel") continue;
+    const g = groupLabel(el.group || el.type.toUpperCase());
+    (groups[g] ??= []).push(el);
+  }
+  const dotColor = { post: "#5b6675", vertical: "#6e7987", horizontal: "#818d9d",
+    trave: "#566270", diagonal: "#98a3b3", plate: "#707b8a", bolt: "#8d8578" };
+  const keys = Object.keys(groups).sort((a, b) => {
+    const la = GROUP_ORDER.indexOf(groupLabel(a)), lb = GROUP_ORDER.indexOf(groupLabel(b));
+    if (a === "ADICIONADOS") return 1; if (b === "ADICIONADOS") return -1;
+    if (la !== -1 && lb !== -1) return la - lb;
+    if (la !== -1) return -1; if (lb !== -1) return 1;
+    return a.localeCompare(b);
+  });
+  let html = "";
+  const p = MODEL.panel, i = MODEL.installation;
+  html += `<div class="dr-sec">Projeto</div>
+    <div class="dr-proj">
+      <div class="nm">${MODEL.project?.name || "Painel LED"}</div>
+      <div class="ps">${MODEL.preset_id || "PROJETO LIVRE"}</div>
+      <div class="dr-grid">
+        <div><small>Painel</small><b>${fmt(p.width)}×${fmt(p.height)}</b></div>
+        <div><small>Prof.</small><b>${fmt(p.depth)} mm</b></div>
+        <div><small>Pé-direito</small><b>${fmt(i.ground_clearance)} mm</b></div>
+        <div><small>Escopo</small><b>Esboço visual</b></div>
+      </div>
+    </div>`;
+  for (const g of keys) {
+    const label = groupLabel(g);
+    html += `<div class="dr-sec"><span>${label}</span>
+      <span style="display:flex;gap:6px;align-items:center">
+        <button class="dr-all" data-group="${g}">todos</button><b>${groups[g].length}</b>
+      </span></div>`;
+    html += groups[g].map(el => {
+      let len = el.profile ? el.profile.replace(/METALON_|TUBO_/, "") : "";
+      if (el.start && el.end) {
+        len = elLen(el).toFixed(0) + "mm";
+      } else if (el.center && el.type === "plate") {
+        len = `${fmt(el.size_x)}×${fmt(el.size_y)}`;
+      }
+      return `<div class="dr-item ${el.id === selectedId ? "sel" : ""} ${multiIds.has(el.id) ? "msel" : ""}" data-id="${el.id}" title="${geometryName(el)}">
+        <span class="dot" style="background:${dotColor[el.role] || "#94a3b8"}"></span>${geometryName(el)}
+        <span class="len">${len}</span>
+      </div>`;
+    }).join("");
+  }
+  $("#drCount").textContent = `${MODEL.elements.length} elems`;
+  $("#drBody").innerHTML = html;
+  $("#drBody").querySelectorAll(".dr-item").forEach(item =>
+    item.addEventListener("click", (ev) => {
+      select(item.dataset.id, ev.shiftKey);
+      const m = meshes.get(item.dataset.id);
+      if (m && !ev.shiftKey) focusView("selection");
+    }));
+  $("#drBody").querySelectorAll(".dr-all").forEach(btn =>
+    btn.addEventListener("click", (ev) => {
+      ev.stopPropagation();
+      const g = btn.dataset.group;
+      const ids = MODEL.elements.filter(e => e.type !== "panel" && groupLabel(e.group || e.type.toUpperCase()) === g).map(e => e.id);
+      if (ids.length) selectMany(ids, false);
+    }));
+}
+$("#btnDrawer").addEventListener("click", () => {
+  $("#drawer").classList.toggle("open");
+  renderDrawer();
+});
+$("#drClose").addEventListener("click", () => $("#drawer").classList.remove("open"));
+
+/* ---------------- COPILOTO IA (dock operacional) ------------------------ */
+function pushMsg(role, text, tag) {
+  const d = document.createElement("div");
+  d.className = "msg " + (role === "user" ? "user" : role === "err" ? "err" : "ai");
+  d.innerHTML = (tag ? `<span class="tag">${tag}</span>` : "") +
+    String(text).replace(/&/g, "&amp;").replace(/</g, "&lt;");
+  $("#aiMsgs").appendChild(d);
+  scrollChat();
+  return d;
+}
+function scrollChat() {
+  const m = $("#aiMsgs");
+  if (m) m.scrollTop = m.scrollHeight;
+}
+function updateCtxChips() {
+  $("#ctxView").innerHTML = `vista: <b>${$("#viewbar .vbtn.on")?.dataset.view === "free" ? "3D" : ($("#viewbar .vbtn.on")?.dataset.view || "3D")}</b>`;
+  const sel = [...multiIds];
+  if (selectedId) sel.unshift(selectedId);
+  $("#ctxSel").innerHTML = `seleção: <b>${sel.length ? sel.slice(0, 3).join(", ") + (sel.length > 3 ? ` +${sel.length - 3}` : "") : "nenhuma"}</b>`;
+  $("#ctxProj").innerHTML = `projeto: <b>${MODEL ? `${MODEL.elements.length} elementos` : "—"}</b>`;
+}
+function renderSuggestions() {
+  const row = $("#aiChips");
+  const sel = selectedId ? [selectedId] : [...multiIds];
+  if (sel.length >= 1) {
+    const id = sel[0];
+    row.innerHTML = `
+      <button class="ai-chip sel-chip" data-ai="dup">⧉ duplicar ${id}</button>
+      <button class="ai-chip sel-chip" data-ai="mv">⇢ mover ${id} 300 mm →</button>
+      <button class="ai-chip sel-chip" data-ai="prof">⇅ trocar perfil de ${id}</button>
+      <button class="ai-chip sel-chip" data-ai="par">∥ criar paralela de ${id}</button>
+      <button class="ai-chip sel-chip" data-ai="diag">⤬ reforço diagonal a partir de ${id}</button>
+      <button class="ai-chip sel-chip" data-ai="del">🗑 excluir ${sel.join(" e ")}</button>`;
+  } else {
+    row.innerHTML = `
+      <button class="ai-chip" data-ai="Crie um painel outdoor NOVO: 2 colunas × 1 fileira de gabinetes de 0,96×0,96 m (painel 1920×960 mm), 1 poste central, pé-direito 3 m, gaiola no módulo dos gabinetes e passarela de manutenção atrás (650 mm) com guarda-corpo de 1,10 m">🧱 painel 2×1 + passarela</button>
+      <button class="ai-chip" data-ai="adicione uma passarela de 650 mm atrás da estrutura com guarda-corpo de 1,10 m">＋ passarela</button>
+      <button class="ai-chip" data-ai="adicione mais um poste igual aos existentes, 500 mm à direita do último">＋ poste</button>
+      <button class="ai-chip" data-ai="monte uma casa 4x3 m em esboço estrutural com telhado de duas águas">🏠 casa 4×3 m</button>
+      <button class="ai-chip" data-ai="alinhe todos os postes no mesmo eixo X">⊟ alinhar postes</button>`;
+  }
+  row.querySelectorAll(".ai-chip").forEach(ch => ch.addEventListener("click", () => {
+    const k = ch.dataset.ai;
+    const id = selectedId || [...multiIds][0];
+    const map = {
+      dup: `duplique o elemento ${id} (mantenha tudo igual e desloque 300 mm para a direita)`,
+      mv: `mova o elemento ${id} 300 mm para a direita (+X)`,
+      prof: `troque o perfil do elemento ${id} para METALON_60x60x2`,
+      par: `crie uma barra paralela ao elemento ${id}, ao lado dele (offset de uma bitola)`,
+      diag: `adicione uma diagonal estrutural ligando o elemento ${id} ao elemento mais próximo compatível`,
+      del: `exclua ${sel.join(" e ")}`,
+    };
+    $("#aiInput").value = map[k] || ch.dataset.ai;
+    sendAi();
+  }));
+}
+
+let aiBusy = false;
+pushMsg("ai", "Sou o copiloto do CAD — trabalho JUNTO com o canvas. Recebo o projeto, a vista e a seleção; " +
+  "devolvo OPERAÇÕES com preview (novas = translúcidas · movidas = fantasma ao lado da original · " +
+  "removidas = vermelho). Você decide: APLICAR ou CANCELAR. Peça: 'adicione outro poste igual a esse " +
+  "960 mm para a direita', 'troque o perfil do selecionado', 'crie um painel 3×2'…", "copiloto");
+async function sendAi() {
+  const text = $("#aiInput").value.trim();
+  if (!text || aiBusy) return;
+  aiBusy = true;
+  $("#aiSend").disabled = true;
+  pushMsg("user", text);
+  $("#aiInput").value = "";
+  const wait = pushMsg("ai", `Enviando para ${ACTIVE_AI_NAME || "IA"}…`, "copiloto");
+  const startedAt = Date.now();
+  const waitTimer = setInterval(() => {
+    const seconds = Math.floor((Date.now() - startedAt) / 1000);
+    const phase = seconds < 8 ? "recebendo o contexto do desenho"
+      : seconds < 35 ? "montando a proposta geométrica"
+      : "a IA ainda está processando; você receberá resposta ou erro automático";
+    wait.textContent = `IA processando (${seconds}s) — ${phase}.`;
+    scrollChat();
+  }, 1000);
+  const selIds = selectedId ? [selectedId] : [...multiIds];
+  try {
+    const r = await api("/api/ai/plan", { method: "POST", body: JSON.stringify({
+      text, view: $("#viewbar .vbtn.on")?.dataset.view || "free", selection_ids: selIds }) });
+    wait.remove();
+    if (r.model) adopt(r);
+    // Erro de provider/plano não é uma proposta vazia. Antes este caso caía
+    // no ramo de preview e mentia "Sem alterações" ao usuário.
+    if (r.ok === false) {
+      let m = r.message || r.error || "Não foi possível gerar o desenho.";
+      // estados claros de limite/erro da conexão ativa (sem trocar conexão)
+      if (r.ai_status === 429) m = `⏳ Limite do provedor atingido (HTTP 429)`
+        + (r.ai_retry_after ? ` — tente novamente em ${r.ai_retry_after}s` : "") + ".";
+      else if (r.ai_status === 402) m = "💳 Créditos/quota insuficientes na conexão de IA ativa (HTTP 402).";
+      else if (r.ai_status === 401 || r.ai_status === 403) m = `🔑 Chave ou permissão recusada pelo provedor (HTTP ${r.ai_status}).`;
+      pushMsg("err", m, "erro");
+      scrollChat();
+      return;
+    }
+    if (r.mode === "executed") {
+      for (const op of (r.applied || [])) if (REDOABLE.test(op.operation || "")) opsStack.push(op);
+      const windOp = (r.applied || []).find(op => op.operation === "__wind" && op.wind);
+      if (windOp) BOM = { ...(BOM || {}), wind: windOp.wind };
+      pushMsg(r.ok === false ? "err" : "ai", r.message || "Feito.", "ferramenta");
+    } else if (r.mode === "select") {
+      if (r.selection?.length) selectMany(r.selection, false);
+      pushMsg("ai", r.explain || `${r.selection?.length || 0} selecionado(s).`, "copiloto");
+    } else if (r.mode === "answer") {
+      pushMsg("ai", r.explain || r.message || "—", r.engine === "llm" ? "copiloto · GLM" : "copiloto");
+    } else if (r.mode === "plan") {
+      const c = r.preview?.counts || {};
+      if (!c.total) {
+        pushMsg("ai", (r.explain || "Sem alterações.") + "\n(nenhuma mudança efetiva no projeto)", "copiloto");
+      } else {
+        renderPlanPreview(r);
+        const m = pushMsg("ai",
+          `${r.explain || "Proposta pronta."}\n\n${c.total} alteração(ões): ${c.add} novas · ${c.edit} editadas · ${c.del} removidas — confira o preview no canvas.`,
+          "copiloto · GLM");
+        const act = document.createElement("div");
+        act.className = "mact";
+        act.innerHTML = `<button class="btn primary" data-act="apply">✓ APLICAR</button>
+                         <button class="btn" data-act="cancel">✕ CANCELAR</button>`;
+        m.appendChild(act);
+        act.querySelector("[data-act=apply]").addEventListener("click", applyPlan);
+        act.querySelector("[data-act=cancel]").addEventListener("click", () => {
+          clearPreview(); pushMsg("ai", "Preview cancelado — nada foi alterado.", "copiloto");
+        });
+      }
+    } else {
+      pushMsg("err", r.message || "Não consegui planejar isso.", "erro");
+    }
+    scrollChat();
+  } catch (e) {
+    wait.remove();
+    pushMsg("err", e.message, "erro");
+    scrollChat();
+  } finally {
+    clearInterval(waitTimer);
+    aiBusy = false;
+    $("#aiSend").disabled = false;
+  }
+}
+$("#aiSend").addEventListener("click", sendAi);
+$("#aiInput").addEventListener("keydown", (e) => { if (e.key === "Enter") sendAi(); });
+
+/* recolher/abrir dock */
+function setDock(open) {
+  const d = $("#aiDock");
+  d.classList.toggle("collapsed", !open);
+  $("#aiFold").textContent = open ? "»" : "«";
+  $("#aiDockFab").style.display = open ? "none" : "";
+}
+$("#aiFold").addEventListener("click", () => setDock($("#aiDock").classList.contains("collapsed")));
+$("#aiDockFab").addEventListener("click", () => setDock(true));
+
+/* ---------------- conector de IA (conexões manuais universais) ---------------- */
+let AI_CFG = null;             // {active_connection_id, connections:[…público…]}
+let AI_EDIT = { id: "" };      // conexão carregada no formulário ("" = nova)
+let ACTIVE_AI_NAME = "";
+$("#aiCfgBtn").addEventListener("click", openAiCfg);
+
+function aiConnById(id) {
+  return (AI_CFG?.connections || []).find(c => c.id === id) || null;
+}
+function aiActiveName() {
+  const c = aiConnById(AI_CFG?.active_connection_id);
+  return c ? c.name : "";
+}
+function aiErrText(r) {
+  if (r.status === 429) return `Limite do provedor atingido (HTTP 429)`
+    + (r.retry_after ? ` — tente novamente em ${r.retry_after}s` : "");
+  if (r.status === 402) return "Créditos/quota insuficientes na conexão (HTTP 402)";
+  if (r.status === 401 || r.status === 403) return `Chave ou permissão recusada pelo provedor (HTTP ${r.status})`;
+  return errorText(r, r?.status);
+}
+function requireAiSuccess(response) {
+  if (response?.ok === false) throw new Error(aiErrText(response));
+  return response;
+}
+
+function aiLoadForm(c) {
+  AI_EDIT.id = c?.id || "";
+  $("#aiConnName").value = c?.name || "";
+  $("#aiConnBase").value = c?.base_url || "";
+  $("#aiConnKey").value = "";
+  $("#aiConnModel").value = c?.model || "";
+  $("#aiConnKeyState").textContent = c?.has_key ? `(salva: ${c.masked} — deixe vazio p/ manter)` : "";
+  $("#aiConnKey").placeholder = c?.has_key ? "deixe vazio para manter a chave salva" : "cole a chave…";
+  $("#aiDelConn").hidden = !c?.id;
+  $("#aiTestOut").textContent = "";
+}
+
+function renderConnList() {
+  const box = $("#aiConnList");
+  const list = AI_CFG?.connections || [];
+  if (!list.length) {
+    box.innerHTML = `<span style="font-size:11px;color:var(--muted)">nenhuma conexão salva ainda — preencha o formulário e salve</span>`;
+    return;
+  }
+  box.innerHTML = list.map(c => {
+    const on = c.id === AI_CFG.active_connection_id;
+    return `<button type="button" data-load="${c.id}" style="text-align:left;font-size:12px;padding:6px 10px;border-radius:8px;cursor:pointer;border:1px solid ${on ? "var(--accent)" : "rgba(128,128,128,.35)"};background:${on ? "rgba(20,184,166,.12)" : "transparent"};color:inherit">${c.name}${on ? " · <b style='color:var(--accent)'>ativa</b>" : ""}</button>`;
+  }).join("");
+  box.querySelectorAll("[data-load]").forEach(b => b.addEventListener("click", async () => {
+    const c = aiConnById(b.dataset.load);
+    if (!c) return;
+    try {
+      if (c.id !== AI_CFG.active_connection_id) {
+        AI_CFG = requireAiSuccess(await api("/api/ai/config/activate", { method: "POST", body: JSON.stringify({ id: c.id }) }));
+      }
+      aiLoadForm(aiConnById(c.id));
+      renderConnList();
+      renderConnStrip();
+    } catch (e) { toast(e.message, false); }
+  }));
+}
+
+function renderConnStrip() {
+  const el = $("#aiConnStrip");
+  if (!el) return;
+  const list = AI_CFG?.connections || [];
+  ACTIVE_AI_NAME = aiActiveName();
+  if (!list.length) {
+    el.innerHTML = `<span style="font-size:10px;color:var(--muted)">IA ativa: <b>nenhuma</b> — cadastre uma conexão no ⚙</span>`;
+    return;
+  }
+  el.innerHTML = `<span style="font-size:10px;color:var(--muted)">IA ativa:</span>` + list.map(c => {
+    const on = c.id === AI_CFG.active_connection_id;
+    return `<button type="button" data-conn="${c.id}" title="${on ? "ativa agora" : "ativar para o próximo pedido"}"
+      style="font-size:10px;padding:2px 8px;border-radius:10px;cursor:pointer;border:1px solid ${on ? "var(--accent)" : "rgba(128,128,128,.35)"};background:${on ? "rgba(20,184,166,.15)" : "transparent"};color:${on ? "var(--accent)" : "inherit"}">${c.name}${on ? " ●" : ""}</button>`;
+  }).join("");
+  el.querySelectorAll("[data-conn]").forEach(b => b.addEventListener("click", async () => {
+    if (b.dataset.conn === AI_CFG.active_connection_id) return;
+    try {
+      AI_CFG = requireAiSuccess(await api("/api/ai/config/activate", { method: "POST", body: JSON.stringify({ id: b.dataset.conn }) }));
+      renderConnStrip();
+      renderConnList();
+      toast(`IA ativa: ${aiActiveName()}`);
+    } catch (e) { toast(e.message, false); }
+  }));
+}
+
+async function refreshActiveAI() {
+  try { AI_CFG = await api("/api/ai/config"); } catch (e) { return; }
+  renderConnStrip();
+}
+async function openAiCfg() {
+  try {
+    AI_CFG = await api("/api/ai/config");
+    renderConnList();
+    renderConnStrip();
+    // formulário carrega a conexão ativa (ou vazio para uma nova)
+    aiLoadForm(aiConnById(AI_CFG.active_connection_id));
+    $("#aiCfgModal").classList.add("open");
+  } catch (e) { toast(e.message, false); }
+}
+$("#aiNewConn").addEventListener("click", () => {
+  aiLoadForm(null);
+  $("#aiConnName").focus();
+});
+$("#aiDelConn").addEventListener("click", async () => {
+  const c = aiConnById(AI_EDIT.id);
+  if (!c) return;
+  if (!confirm(`Excluir a conexão "${c.name}"? Esta ação não pode ser desfeita.`)) return;
+  try {
+    AI_CFG = requireAiSuccess(await api("/api/ai/config/delete", { method: "POST", body: JSON.stringify({ id: c.id }) }));
+    aiLoadForm(aiConnById(AI_CFG.active_connection_id));
+    renderConnList();
+    renderConnStrip();
+    toast("Conexão excluída.");
+  } catch (e) { toast(e.message, false); }
+});
+refreshActiveAI();
+$("#aiTestBtn").addEventListener("click", async () => {
+  const out = $("#aiTestOut");
+  out.textContent = "⏳ testando (não salva nada)…";
+  out.style.color = "var(--muted)";
+  try {
+    // teste EFÊMERO com os quatro valores do formulário — não salva nada
+    const r = await api("/api/ai/test-dry", { method: "POST", body: JSON.stringify({
+      id: AI_EDIT.id || null,
+      name: $("#aiConnName").value.trim(),
+      base_url: $("#aiConnBase").value.trim(),
+      model: $("#aiConnModel").value.trim(),
+      api_key: $("#aiConnKey").value.trim() || null,
+    }) });
+    out.textContent = r.ok
+      ? `✅ Conectado: ${r.name} · modelo ${r.model} · respondeu "${r.reply}" em ${r.elapsed_s}s — agora salve a conexão.`
+      : `❌ ${aiErrText(r)} — nada foi salvo.`;
+    out.style.color = r.ok ? "var(--accent)" : "var(--danger)";
+  } catch (e) { out.textContent = `❌ ${e.message}`; out.style.color = "var(--danger)"; }
+});
+$("#aiSaveConn").addEventListener("click", async () => {
+  try {
+    AI_CFG = requireAiSuccess(await api("/api/ai/config", { method: "POST", body: JSON.stringify({
+      id: AI_EDIT.id || null,
+      name: $("#aiConnName").value.trim(),
+      base_url: $("#aiConnBase").value.trim(),
+      model: $("#aiConnModel").value.trim(),
+      api_key: $("#aiConnKey").value.trim() || null,
+    }) }));
+    $("#aiConnKey").value = "";
+    const active = aiConnById(AI_CFG.active_connection_id);
+    aiLoadForm(active);
+    renderConnList();
+    renderConnStrip();
+    toast(`Conexão salva e ativa: ${active?.name || ""}`);
+  } catch (e) { toast(e.message, false); }
+});
+
+/* ---------------- header: novo / importar / salvar / prancha ------------ */
+$("#btnNew").addEventListener("click", async () => {
+  $("#newModal").classList.add("open");
+  selectNewTab("blank");
+  renderPresetGrid();
+  updatePanelOut();
+});
+$("#btnImport").addEventListener("click", () => { $("#impText").value = ""; $("#importModal").classList.add("open"); });
+$("#btnSave").addEventListener("click", saveProject);
+$("#btnSheet").addEventListener("click", openSheet);
+$("#btnHelp").addEventListener("click", openHelp);
+
+document.querySelectorAll("[data-close]").forEach(b =>
+  b.addEventListener("click", () => document.getElementById(b.dataset.close).classList.remove("open")));
+document.querySelectorAll(".modal-bg").forEach(m =>
+  m.addEventListener("click", (e) => { if (e.target === m) m.classList.remove("open"); }));
+
+/* ---------------- modal NOVO: em branco / formulário / presets ---------- */
+function selectNewTab(id) {
+  document.querySelectorAll("#newModal .tab").forEach(x => x.classList.remove("on"));
+  document.querySelector(`#newModal .tab[data-ntab="${id}"]`)?.classList.add("on");
+  for (const tabId of ["blank", "reto", "presets"])
+    $("#ntab-" + tabId).style.display = tabId === id ? "" : "none";
+  if (id === "presets") renderPresetGrid();
+}
+document.querySelectorAll("#newModal .tab").forEach(t =>
+  t.addEventListener("click", () => selectNewTab(t.dataset.ntab)));
+
+$("#nBlankCreate").addEventListener("click", async () => {
+  const btn = $("#nBlankCreate");
+  btn.disabled = true;
+  try {
+    const r = await api("/api/project/blank", { method: "POST" });
+    $("#newModal").classList.remove("open");
+    deselect(); adopt(r); focusView("free");
+    toast("Projeto em branco criado.");
+  } catch (e) { toast(e.message, false); }
+  finally { btn.disabled = false; }
+});
+
+function panelCalc() {
+  const gw = parseFloat($("#nGw").value) || 960;
+  const gh = parseFloat($("#nGh").value) || 960;
+  const cols = Math.max(1, parseInt($("#nCols").value) || 1);
+  const rows = Math.max(1, parseInt($("#nRows").value) || 1);
+  return { gw, gh, cols, rows, pw: gw * cols, ph: gh * rows };
+}
+function updatePanelOut() {
+  const c = panelCalc();
+  $("#nPanelOut").textContent = `${fmt(c.pw)} × ${fmt(c.ph)} mm`;
+}
+["nGw", "nGh", "nCols", "nRows"].forEach(id =>
+  document.getElementById(id).addEventListener("input", updatePanelOut));
+
+$("#nCreate").addEventListener("click", async () => {
+  const c = panelCalc();
+  const gd = parseFloat($("#nGd").value) || 100;
+  const pd = parseFloat($("#nPd").value) || 0;
+  const posts = Math.max(0, parseInt($("#nPosts").value) || 0);
+  const cageD = parseFloat($("#nCageD").value) || 650;
+  const cage = $("#nCage").checked, walk = $("#nWalk").checked, rail = $("#nRail").checked && walk;
+  const parts = [
+    `Crie um painel outdoor NOVO do zero: ${c.cols} coluna(s) × ${c.rows} fileira(s) de gabinetes de ` +
+    `${fmt(c.gw)}×${fmt(c.gh)}×${fmt(gd)} mm (painel ${fmt(c.pw)}×${fmt(c.ph)} mm)`,
+    posts > 0 ? `${posts} poste(s) ${posts === 1 ? "central" : "distribuídos"}, pé-direito ${fmt(pd)} mm` : `sem postes, painel a ${fmt(pd)} mm do solo`,
+  ];
+  parts.push(cage ? `gaiola estrutural no módulo dos gabinetes com profundidade ${fmt(cageD)} mm`
+                  : `SEM gaiola e SEM grades de gabinetes`);
+  parts.push(walk ? `passarela de manutenção atrás do painel (profundidade ${fmt(cageD)} mm)`
+                  : `SEM passarela`);
+  parts.push(rail ? "guarda-corpo de 1,10 m na passarela" : "SEM guarda-corpo");
+  const text = parts.join(", ") + ".";
+  // intenção estruturada: os três booleanos vão SEMPRE explícitos (inclusive
+  // falsos) e são mandatórios no backend (services/ai_intent.py)
+  const form = { cols: c.cols, rows: c.rows, gw: c.gw, gh: c.gh, gd,
+                 pd, posts, cage_d: cageD, cage, walk, rail };
+  const btn = $("#nCreate");
+  btn.disabled = true; btn.textContent = "✨ desenhando…";
+  try {
+    const r = await api("/api/ai/command", { method: "POST", body: JSON.stringify({ text, form }) });
+    if (r.model) adopt(r);
+    if (Array.isArray(r.selection) && r.selection.length) selectMany(r.selection, false);
+    toast((r.engine === "llm" ? "✨ " : "") + (r.message || "Projeto criado."), r.ok !== false);
+    if (r.ok !== false) { $("#newModal").classList.remove("open"); focusView("free"); }
+  } catch (e) { toast(e.message, false); }
+  finally { btn.disabled = false; btn.textContent = "CRIAR"; }
+});
+
+async function renderPresetGrid() {
+  const gridEl = $("#presetGrid");
+  gridEl.innerHTML = `<div style="color:var(--muted);font-size:11px;padding:6px">carregando…</div>`;
+  try {
+    const list = await api("/api/presets");
+    window.PRESETS = list || [];
+    const catName = { referencia: "REFERÊNCIA", dooh: "DOOH", parede: "PAREDE", suspenso: "SUSPENSO", rental: "RENTAL", custom: "CUSTOM" };
+    const cards = [...list].sort((a, b) => (b.custom === true) - (a.custom === true)).map(p => {
+      const cat = (p.category || "outro").toLowerCase();
+      return `<div class="preset-card" data-id="${p.id}">
+        <span class="cat cat-${cat}">${catName[cat] || cat}</span>
+        <b>${p.name}</b><small>${p.description || ""}</small>
+        ${p.custom ? `<button class="preset-del" data-pdel="${p.id}" title="Excluir este preset pessoal">✕</button>` : ""}
+      </div>`;
+    }).join("");
+    gridEl.innerHTML = cards || `<div style="color:var(--muted);font-size:11px;padding:6px">nenhum preset salvo ainda</div>`;
+    gridEl.querySelectorAll(".preset-card").forEach(c => c.addEventListener("click", async (ev) => {
+      if (ev.target.closest(".preset-del")) return;
+      try {
+        if (c.dataset.blank) {
+          const r = await api("/api/project/blank", { method: "POST" });
+          $("#newModal").classList.remove("open");
+          deselect(); adopt(r);
+          toast("Projeto em branco — use as ferramentas à esquerda ou a IA ✨.");
+          return;
+        }
+        const r = await api("/api/project/new", { method: "POST", body: JSON.stringify({ preset_id: c.dataset.id }) });
+        $("#newModal").classList.remove("open");
+        deselect(); adopt(r);
+        focusView("free");
+        toast("Projeto criado: " + (r.model.project?.name || c.dataset.id));
+      } catch (e) { toast(e.message, false); }
+    }));
+    gridEl.querySelectorAll(".preset-del").forEach(b => b.addEventListener("click", (ev) => {
+      ev.stopPropagation();
+      if (!b.classList.contains("arm")) {
+        b.classList.add("arm"); b.textContent = "certeza?";
+        b._armTimer = setTimeout(() => { b.classList.remove("arm"); b.textContent = "✕"; }, 3200);
+        return;
+      }
+      clearTimeout(b._armTimer);
+      api("/api/presets/custom/" + encodeURIComponent(b.dataset.pdel), { method: "DELETE" })
+        .then(() => { toast("Preset pessoal excluído."); renderPresetGrid(); })
+        .catch(e => toast(e.message, false));
+    }));
+  } catch (e) {
+    gridEl.innerHTML = `<div style="color:var(--danger);font-size:11px">Erro: ${e.message}</div>`;
+  }
+}
+
+/* ---------------- importar JSON ---------------- */
+const EXTERNAL_AI_IMPORT_PROMPT = `Você é projetista de esboços estruturais para painéis de LED. Seu trabalho é transformar minha próxima descrição em UM projeto JSON importável pelo LED STRUCTURE CAD.
+
+REGRAS DE SAÍDA
+1. Responda SOMENTE com um objeto JSON válido. Sem Markdown, sem comentários, sem explicações antes ou depois.
+2. O JSON representa o projeto inteiro, não uma lista de instruções. Inclua project, panel, installation e elements.
+3. Todas as medidas são milímetros. Eixos: X = largura/esquerda-direita; Y = profundidade (frente/trás); Z = altura; solo = Z 0; centro do projeto = X 0 e Y 0.
+4. Isto é um ESBOÇO geométrico para revisão do engenheiro, não cálculo estrutural, ART, dimensionamento de carga, escolha de material ou aprovação de segurança.
+5. Use IDs únicos em maiúsculas: PAINEL-LED, POSTE-01, V01, H01, D01, BASE-01. Não referencie IDs inexistentes.
+
+FORMATO CANÔNICO
+{
+  "project":{"name":"nome do projeto","client":"","units":"mm"},
+  "panel":{"width":3840,"height":1920,"depth":600},
+  "installation":{"type":"post|wall|suspended|rental","posts":1,"ground_clearance":3000,"environment":"outdoor|indoor"},
+  "elements":[...],
+  "preset_id":"",
+  "revisions":[]
+}
+
+ELEMENTOS
+- Barra: {"id":"V01","type":"beam","role":"vertical|horizontal|trave|diagonal|post|other","start":{"x":0,"y":0,"z":0},"end":{"x":0,"y":0,"z":3000},"label":"","group":"GAIOLA","shield":false}
+- Chapa geométrica/base: {"id":"BASE-01","type":"plate","role":"base|plate","center":{"x":0,"y":0,"z":25},"size_x":500,"size_y":500,"size_z":25,"label":"","group":"BASES","shield":false}
+- Painel de LED (referência visual, não é chapa): {"id":"PAINEL-LED","type":"panel","role":"panel","profile":null,"center":{"x":0,"y":0,"z":3960},"size_x":3840,"size_y":600,"size_z":1920,"label":"PAINEL LED","group":"PAINEL","shield":false}
+- Fixação: type "bolt", com start/end.
+
+NÃO inclua especificação de fabricação, peso, custo ou preço. O CAD desenha somente a geometria; a empresa de estrutura define esses itens depois.
+
+MODELE A ESTRUTURA, NÃO SÓ A TELA: para painel LED desenhe painel de referência, gaiola frontal/traseira, montantes nas juntas de gabinete quando solicitados, travessas, postes/ancoragens/passarela/guarda-corpo apenas quando fizerem parte do pedido. Para formas livres (cubo, casa, círculo aproximado, torre, pórtico), use barras e chapas geométricas coerentes. Preserve a geometria solicitada e deixe hipóteses visuais claras nos labels/grupos, sem inventar cálculo de resistência.
+
+Agora aguarde minha descrição do projeto e responda somente com o JSON completo importável.`;
+
+$("#impCopyPrompt").addEventListener("click", async () => {
+  try {
+    await navigator.clipboard.writeText(EXTERNAL_AI_IMPORT_PROMPT);
+    $("#impCopyState").textContent = "Prompt copiado. Cole em um chat novo e descreva o projeto.";
+  } catch {
+    $("#impCopyState").textContent = "Não consegui copiar automaticamente. Use este navegador em HTTPS ou localhost.";
+  }
+});
+
+$("#impFile").addEventListener("click", () => $("#impInput").click());
+$("#impInput").addEventListener("change", (e) => {
+  const f = e.target.files?.[0];
+  if (!f) return;
+  const rd = new FileReader();
+  rd.onload = () => { $("#impText").value = String(rd.result || ""); };
+  rd.readAsText(f);
+  e.target.value = "";
+});
+$("#impGo").addEventListener("click", async () => {
+  const raw = $("#impText").value.trim();
+  if (!raw) { toast("Cole o JSON do projeto (ou escolha um arquivo).", false); return; }
+  try {
+    const payload = await api("/api/project/import", { method: "POST", body: raw });
+    $("#importModal").classList.remove("open");
+    deselect(); adopt(payload);
+    focusView("free");
+    toast(`Projeto importado: ${payload.model.project?.name || "JSON"} (${payload.model.elements.length} elems).`);
+  } catch (err) { toast(err.message, false); }
+});
+
+/* ---------------- salvar ---------------- */
+async function saveProject() {
+  if (!MODEL) return;
+  const name = (MODEL.project?.name || "projeto") + " " + new Date().toLocaleDateString("pt-BR");
+  try {
+    const r = await api("/api/projects/save", { method: "POST", body: JSON.stringify({ name }) });
+    toast(r.version ? `Projeto “${r.name}” salvo — versão v${r.version} arquivada.`
+                    : `Projeto “${r.name}” salvo.`);
+  } catch (e) { toast(e.message, false); }
+}
+
+/* ---------------- PRANCHA FINAL (GERAR PROJETO) ------------------------- */
+async function openSheet() {
+  if (!MODEL) return;
+  $("#sheet").classList.add("open");
+  const paper = $("#sheetPaper");
+  paper.innerHTML = `<div style="text-align:center;padding:60px 0;color:#8a919d;font-size:12px">gerando prancha…</div>`;
+  try {
+    const views = await api("/api/views?all=true");
+    const p = MODEL.panel, i = MODEL.installation;
+    const instName = { post: "Postes / Outdoor", wall: "Fixado em parede",
+      suspended: "Suspenso (teto)", rental: "Rental / Palco" }[i.type] || i.type;
+    const frames = ["FRONTAL", "TRASEIRA", "LATERAL", "SUPERIOR", "INFERIOR", "ISOMETRICA"]
+      .filter(n => views[n])
+      .map(n => `<div class="vframe">${views[n]}</div>`).join("");
+    const now = new Date().toLocaleString("pt-BR");
+    paper.innerHTML = `
+      <h1>${(MODEL.project?.name || "PAINEL LED").toUpperCase()}</h1>
+      <div class="p-sub">ESBOÇO ESTRUTURAL — LED STRUCTURE CAD · medidas em milímetros · gerado em ${now}</div>
+      <div class="p-meta">
+        <div><small>Painel</small><b>${fmt(p.width)} × ${fmt(p.height)} mm</b></div>
+        <div><small>Profundidade</small><b>${fmt(p.depth)} mm</b></div>
+        <div><small>Pé-direito</small><b>${fmt(i.ground_clearance)} mm</b></div>
+        <div><small>Instalação</small><b>${instName}</b></div>
+        <div><small>Escopo</small><b>Esboço visual</b></div>
+        <div><small>Vistas</small><b>Frente · lado · topo</b></div>
+      </div>
+      <div class="views-grid">${frames}</div>
+      <div class="p-sec">Notas</div>
+      <div class="p-notes">
+        • Este desenho é um <b>esboço estrutural paramétrico</b> — todos os elementos, medidas e perfis
+        são representados geometricamente no CAD (gaiola, postes, passarela e chapas em milímetros).<br>
+        <span class="warn">⚠ NÃO substitui cálculo estrutural, ART ou responsabilidade técnica de engenheiro.</span><br>
+        • A prancha mostra vistas, cotas e detalhes visuais para orientar a fabricação do esboço.<br>
+        • Esta ferramenta não gera quantitativo de peças, peso, preço, orçamento ou plano de corte.
+      </div>
+      <div class="p-exports">
+        <button id="pDxf">⤓ DXF</button>
+        <button id="pDxfZip">⤓ DXF por vista (.zip)</button>
+        <button id="pJson">⤓ projeto.json</button>
+        <button id="pGltf">⤓ GLTF 3D</button>
+        <button id="pPack">⤓ Pacote do esboço (.zip)</button>
+      </div>`;
+    $("#sheetName").textContent = MODEL.project?.name || "";
+    // Fluxo ÚNICO do botão BAIXAR PDF: o handler fixo #sheetPdf (addEventListener,
+    // fim do arquivo) é o único caminho — NÃO religar aqui (era a causa do
+    // download múltiplo: onclick + addEventListener disparavam 2+ fetches por clique).
+    $("#pDxf").onclick = () => download("/api/export/dxf", "led_cad.dxf");
+    $("#pDxfZip").onclick = () => download("/api/export/dxf.zip", "led_cad_dxf_por_vista.zip");
+    $("#pJson").onclick = () => download("/api/export/json", "projeto.json");
+    $("#pGltf").onclick = () => download("/api/export/gltf", "estrutura_led.gltf");
+    $("#pPack").onclick = () => download("/api/export/package.zip", "entrega_led_cad.zip");
+  } catch (e) {
+    paper.innerHTML = `<div style="text-align:center;padding:40px;color:#b45309">Erro ao gerar a prancha: ${e.message}</div>`;
+  }
+}
+$("#sheetBack").addEventListener("click", () => $("#sheet").classList.remove("open"));
+$("#sheetPdf").addEventListener("click", () => download("/api/export/pdf", "prancha_led_cad.pdf"));
+
+/* ---------------- ajuda ---------------- */
+async function openHelp() {
+  $("#helpContent").innerHTML = `
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:18px" id="helpCols">
+      <div>
+        <div class="help-h">⌨ Atalhos</div>
+        <table class="shortcuts">
+          <tr><td><kbd>S</kbd></td><td>Selecionar</td></tr>
+          <tr><td><kbd>G</kbd></td><td>Gizmo de mover</td></tr>
+          <tr><td><kbd>T</kbd></td><td>Rotacionar 90° (Shift = −90°)</td></tr>
+          <tr><td><kbd>C</kbd></td><td>Copiar → clique cola no destino</td></tr>
+          <tr><td><kbd>D</kbd></td><td>Duplicar</td></tr>
+          <tr><td><kbd>B</kbd> · <kbd>P</kbd> · <kbd>K</kbd> · <kbd>X</kbd></td><td>Barra · Poste · Chapa · Diagonal</td></tr>
+          <tr><td><kbd>M</kbd> · <kbd>N</kbd></td><td>Medir · Cota visual</td></tr>
+          <tr><td><kbd>L</kbd> · <kbd>U</kbd></td><td>Alinhar · Distribuir (seleção)</td></tr>
+          <tr><td><kbd>O</kbd> · <kbd>R</kbd></td><td>Paralela · Espelhar</td></tr>
+          <tr><td><kbd>Y</kbd> · <kbd>E</kbd></td><td>Podar · Esticar</td></tr>
+          <tr><td><kbd>Shift</kbd>+arrastar</td><td>Seleção por área</td></tr>
+          <tr><td><kbd>Q</kbd></td><td>Mostrar/ocultar painel</td></tr>
+          <tr><td><kbd>Ctrl+Z</kbd> / <kbd>Ctrl+Shift+Z</kbd></td><td>Desfazer / Refazer (IA e manual)</td></tr>
+          <tr><td><kbd>Ctrl+S</kbd></td><td>Salvar projeto</td></tr>
+          <tr><td><kbd>Esc</kbd></td><td>Fecha painéis e cancela ferramenta</td></tr>
+        </table>
+        <div class="help-h">🖱 Interação 3D</div>
+        <table class="shortcuts">
+          <tr><td>Arrastar</td><td>Orbitar a câmera</td></tr>
+          <tr><td>Scroll</td><td>Zoom</td></tr>
+          <tr><td>Clique</td><td>Selecionar / ponto com snap</td></tr>
+          <tr><td>Snap</td><td>ponta · meio · cruz · aresta · grelha + ORTHO auto/X/Y/Z</td></tr>
+        </table>
+      </div>
+      <div>
+        <div class="help-h">✨ Copiloto IA operacional</div>
+        <div class="help-note" style="margin-top:0">O chat trabalha JUNTO com o CAD: recebe o projeto,
+        a vista e a seleção; devolve OPERAÇÕES (nunca regenera o projeto para pequenas alterações);
+        você vê o PREVIEW translúcido no canvas e decide: APLICAR ou CANCELAR.</div>
+        <div class="help-h">🧱 Padrão de pedido — copie, preencha e envie</div>
+        <pre class="help-ai">Crie um painel &lt;outdoor / parede / suspenso&gt; NOVO:
+• Gabinetes: &lt;0,96×0,96 m&gt; → &lt;2&gt; colunas × &lt;1&gt; fileira
+• Poste(s): &lt;1&gt; central · pé-direito &lt;3 m&gt;
+• Estrutura: gaiola no módulo dos gabinetes + travessas
+• Passarela: &lt;sim&gt; — &lt;650&gt; mm atrás, guarda-corpo &lt;1,1 m&gt;
+• Mais: &lt;escada, perfil METALON, o que quiser…&gt;</pre>
+        <div class="help-note">Com um elemento SELECIONADO use os chips do copiloto: duplicar, mover,
+        trocar perfil, criar paralela, reforço diagonal, excluir. “crie/desenhe” = projeto novo;
+        “adicione/mova/troque” = operação pontual. Ctrl+Z desfaz tudo (IA e manual na mesma pilha).</div>
+      </div>
+    </div>`;
+  $("#helpModal").classList.add("open");
+}
+
+/* ---------------- teclado ---------------- */
+window.addEventListener("keydown", (e) => {
+  if (e.target.tagName === "INPUT" || e.target.tagName === "SELECT" || e.target.tagName === "TEXTAREA") return;
+  if (e.key === "Escape") {
+    let closed = false;
+    for (const id of ["helpModal", "newModal", "importModal", "aiCfgModal"]) {
+      const m = document.getElementById(id);
+      if (m.classList.contains("open")) { m.classList.remove("open"); closed = true; }
+    }
+    if (pendingPlan) { clearPreview(); closed = true; }
+    if ($("#drawer").classList.contains("open")) { $("#drawer").classList.remove("open"); closed = true; }
+    if ($("#sheet").classList.contains("open")) { $("#sheet").classList.remove("open"); closed = true; }
+    if (closed) return;
+    if (multiIds.size) clearMulti(); else deselect();
+    exitModes();
+  }
+  if (e.key === "?") { e.preventDefault(); openHelp(); }
+  if ((e.key === "Delete" || e.key === "Backspace")) {
+    $("#toolDel").click();
+  }
+  const k = e.key.toLowerCase();
+  if (k === "s" && !e.ctrlKey && !e.metaKey) setMode("select");
+  if (k === "b" && !e.ctrlKey && !e.metaKey) setMode("bar");
+  if (k === "p" && !e.ctrlKey && !e.metaKey) setMode("post");
+  if (k === "k" && !e.ctrlKey && !e.metaKey) setMode("plate");
+  if (k === "x" && !e.ctrlKey && !e.metaKey) setMode("diag");
+  if (k === "m" && !e.ctrlKey && !e.metaKey) setMode("ruler");
+  if (k === "n" && !e.ctrlKey && !e.metaKey) setMode("dim");
+  if (k === "t" && !e.ctrlKey && !e.metaKey) setMode("rotate");
+  if (k === "c" && !e.ctrlKey && !e.metaKey) { // copiar
+    const sel = selectedId ? [selectedId] : [...multiIds];
+    if (sel.length) { clipboardIds = sel; setMode("copy");
+      toast(`${sel.length} elemento(s) copiado(s) — clique no destino para colar.`);
+    } else toast("Selecione algo para copiar.", false);
+  }
+  if (k === "d" && !e.ctrlKey && !e.metaKey) $("#toolDup").click();
+  if (k === "l" && !e.ctrlKey && !e.metaKey) setMode("align");
+  if (k === "u" && !e.ctrlKey && !e.metaKey) setMode("distrib");
+  if (k === "o" && !e.ctrlKey && !e.metaKey) setMode("offset");
+  if (k === "r" && !e.ctrlKey && !e.metaKey) setMode("mirror");
+  if (k === "y" && !e.ctrlKey && !e.metaKey) setMode("trim");
+  if (k === "e" && !e.ctrlKey && !e.metaKey) setMode("extend");
+  if (k === "q" && !e.ctrlKey && !e.metaKey) $("#panelVis").click();
+  if (k === "f" && !e.ctrlKey && !e.metaKey) focusView(selectedId ? "selection" : "free");
+  if ((e.ctrlKey || e.metaKey) && k === "z" && !e.shiftKey) { e.preventDefault(); doUndo(); }
+  if ((e.ctrlKey || e.metaKey) && (k === "y" || (k === "z" && e.shiftKey))) { e.preventDefault(); doRedo(); }
+  if ((e.ctrlKey || e.metaKey) && k === "s") { e.preventDefault(); saveProject(); }
+});
+
+/* ---------------- hooks de depuração (leitura via console) -------------- */
+window.__cad = {
+  get model() { return MODEL; },
+  get selected() { return selectedId; },
+  get multi() { return [...multiIds]; },
+  get meshCount() { return meshes.size; },
+  get mode() { return mode; },
+  get pendingPlan() { return pendingPlan ? { ops: pendingPlan.operations?.length, counts: pendingPlan.preview?.counts } : null; },
+  select: (id, additive) => select(id, additive),
+  setMode: (m) => setMode(m),
+  camera: () => camera,
+  snapCfg: () => snapCfg,
+  opsStackLen: () => opsStack.length,
+  redoLen: () => redoStack.length,
+  pick: (clientX, clientY) => {
+    const r = renderer.domElement.getBoundingClientRect();
+    mouse.x = ((clientX - r.left) / r.width) * 2 - 1;
+    mouse.y = -((clientY - r.top) / r.height) * 2 + 1;
+    ray.setFromCamera(mouse, camera);
+    const hits = ray.intersectObjects([...meshes.values()], false);
+    return { rect: [r.left, r.top, r.width, r.height], ndc: [mouse.x, mouse.y],
+             hits: hits.map(h => h.object.userData.elementId) };
+  },
+};
+
+/* ---------------- boot ---------------- */
+(async function boot() {
+  try {
+    const meta = await api("/api/meta");
+    PROFILES = meta.profiles || [];
+    const payload = await api("/api/project");
+    adopt(payload);
+    updateUndoRedo();
+    focusView("free");
+    if (window.innerWidth <= 1100) setDock(false);   // mobile: canvas primeiro
+    $("#loading").classList.add("hide");
+    setTimeout(() => $("#loading").remove(), 500);
+  } catch (e) {
+    $("#loading").innerHTML = `<div style="color:var(--danger);font-weight:700">Erro ao conectar ao backend Python.</div>
+      <div style="color:var(--muted);font-size:12px">${e.message}</div>`;
+    console.error(e);
+  }
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,10 @@
+{
+  "name": "led-cad-service",
+  "version": "0.1.0",
+  "private": true,
+  "description": "LED STRUCTURE CAD — mini-CAD paramétrico Python/FastAPI (porta 3100)",
+  "scripts": {
+    "dev": "python3 -m uvicorn main:app --host 0.0.0.0 --port 3100 --reload --reload-include '*.py' --reload-include '*.json' --reload-include '*.html'",
+    "start": "python3 -m uvicorn main:app --host 0.0.0.0 --port 3100"
+  }
+}

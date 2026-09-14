@@ -1,0 +1,16 @@
+{
+ "steel_profile_brl_kg": 14.9,
+ "steel_plate_brl_kg": 16.5,
+ "bolt_brl_unit_by_diameter": {
+  "16": 22.0,
+  "20": 34.0,
+  "25": 52.0,
+  "32": 88.0
+ },
+ "bolt_brl_unit_default": 45.0,
+ "waste_factor": 1.08,
+ "paint_brl_kg": 3.2,
+ "concrete_brl_kg": 0.22,
+ "currency": "BRL",
+ "updated_at": "2026-09-12 21:08:25"
+}

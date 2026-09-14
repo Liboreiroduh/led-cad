@@ -1,0 +1,33 @@
+# Secrets and local AI configuration
+.env
+.env.*
+data/ai_config.json
+
+# Local project/session state and databases
+data/_session*.json
+data/data_qa_ai/
+data/*.db
+*.db
+
+# Runtime files
+*.pid
+*.log
+server.*.log
+
+# Python cache and virtual environments
+__pycache__/
+**/__pycache__/
+*.py[cod]
+.venv/
+venv/
+
+# Editor/OS files
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+
+# Generated exports and temporary files
+exports/
+tmp/
+*.pdf

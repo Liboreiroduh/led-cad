@@ -1,0 +1,33 @@
+{
+  "catalog_version": 1,
+  "description": "Biblioteca deduplicada a partir dos desenhos de referência. Uma ficha por painel L × A; listas de material, fundações, módulos e arquivos repetidos não criam cartões.",
+  "presets": [
+    {"id":"REF_1000X1000","name":"1000 × 1000 — Rental","category":"referencia","size_mm":[1000,1000],"template":"rental","description":"Esboço rental compacto; referência Estrutura 1×1 / Bumper Rental."},
+    {"id":"REF_1000X2000","name":"1000 × 2000 — Outdoor","category":"referencia","size_mm":[1000,2000],"template":"outdoor_1_post","description":"Esboço outdoor vertical com poste; referências 1×2 Fabian e antigas."},
+    {"id":"REF_2000X1000","name":"2000 × 1000 — Parede","category":"referencia","size_mm":[2000,1000],"template":"wall","description":"Esboço para fixação em parede; referências 2×1 Fabian."},
+    {"id":"REF_2000X2000","name":"2000 × 2000 — Rental","category":"referencia","size_mm":[2000,2000],"template":"rental","description":"Esboço de evento/rental; referências 2×2 Fabian e antigas."},
+    {"id":"REF_2000X3000","name":"2000 × 3000 — Outdoor","category":"referencia","size_mm":[2000,3000],"template":"outdoor_1_post","description":"Esboço outdoor vertical; referência 2×3."},
+    {"id":"REF_2000X4000","name":"2000 × 4000 — Outdoor","category":"referencia","size_mm":[2000,4000],"template":"outdoor_2_posts","description":"Esboço outdoor vertical; referência 2×4 Fabian."},
+    {"id":"REF_2000X5000","name":"2000 × 5000 — Outdoor","category":"referencia","size_mm":[2000,5000],"template":"outdoor_2_heavy","description":"Esboço outdoor vertical com estrutura reforçada; referências 2×5."},
+    {"id":"REF_3000X1000","name":"3000 × 1000 — Parede","category":"referencia","size_mm":[3000,1000],"template":"wall","description":"Esboço para parede/fachada; referência 3×1 Fabian."},
+    {"id":"REF_3000X2000","name":"3000 × 2000 — Outdoor","category":"referencia","size_mm":[3000,2000],"template":"outdoor_2_posts","description":"Esboço outdoor com gaiola; referências 3×2 Fabian e antigas."},
+    {"id":"REF_3000X3000","name":"3000 × 3000 — Outdoor","category":"referencia","size_mm":[3000,3000],"template":"outdoor_2_posts","description":"Esboço outdoor quadrado; referência 3×3."},
+    {"id":"REF_3000X4000","name":"3000 × 4000 — Outdoor","category":"referencia","size_mm":[3000,4000],"template":"outdoor_2_posts","description":"Esboço outdoor vertical; referência 3×4."},
+    {"id":"REF_3000X5000","name":"3000 × 5000 — Outdoor","category":"referencia","size_mm":[3000,5000],"template":"outdoor_2_heavy","description":"Esboço outdoor vertical reforçado; referências 3×5."},
+    {"id":"REF_3000X6000","name":"3000 × 6000 — Parede","category":"referencia","size_mm":[3000,6000],"template":"wall","description":"Esboço de grande formato para parede; referência 3×6 Fabian."},
+    {"id":"REF_4000X1000","name":"4000 × 1000 — Suspenso","category":"referencia","size_mm":[4000,1000],"template":"suspended","description":"Esboço suspenso por tirantes; referências 4×1."},
+    {"id":"REF_4000X2000","name":"4000 × 2000 — Outdoor","category":"referencia","size_mm":[4000,2000],"template":"outdoor_2_posts","description":"Esboço outdoor com gaiola e dois postes; referências 4×2 Fabian e antigas."},
+    {"id":"REF_4000X3000","name":"4000 × 3000 — Outdoor","category":"referencia","size_mm":[4000,3000],"template":"outdoor_2_heavy","description":"Esboço outdoor reforçado; referências 4×3."},
+    {"id":"REF_5000X2000","name":"5000 × 2000 — Parede","category":"referencia","size_mm":[5000,2000],"template":"wall","description":"Esboço para fachada/parede; referências 5×2 Fabian e Uptown."},
+    {"id":"REF_5000X3000","name":"5000 × 3000 — Outdoor","category":"referencia","size_mm":[5000,3000],"template":"outdoor_2_heavy","description":"Esboço outdoor reforçado; referências 5×3 Fabian."},
+    {"id":"REF_6000X3000","name":"6000 × 3000 — Outdoor","category":"referencia","size_mm":[6000,3000],"template":"outdoor_2_heavy","description":"Esboço outdoor com gaiola e acesso visual; referências 6×3 Fabian."},
+    {"id":"REF_6000X4000","name":"6000 × 4000 — Outdoor","category":"referencia","size_mm":[6000,4000],"template":"outdoor_2_heavy","description":"Esboço outdoor grande formato; referência 6×4 Fabian."},
+    {"id":"REF_7000X3000","name":"7000 × 3000 — Outdoor","category":"referencia","size_mm":[7000,3000],"template":"outdoor_2_heavy","description":"Esboço outdoor grande formato; referências 7×3."},
+    {"id":"REF_8000X3000","name":"8000 × 3000 — Outdoor","category":"referencia","size_mm":[8000,3000],"template":"outdoor_2_heavy","description":"Esboço outdoor grande formato; referência 8×3."},
+    {"id":"REF_9000X3000","name":"9000 × 3000 — Outdoor","category":"referencia","size_mm":[9000,3000],"template":"outdoor_2_heavy","description":"Esboço outdoor grande formato; referências 9×3."},
+    {"id":"REF_1920X960","name":"1920 × 960 — Outdoor","category":"referencia","size_mm":[1920,960],"template":"outdoor_1_post","description":"Esboço modular outdoor; referência Fabian Cipriano Butiquim."},
+    {"id":"REF_3840X1536","name":"3840 × 1536 — Indoor","category":"referencia","size_mm":[3840,1536],"template":"wall","description":"Esboço indoor para parede; referências Fabian 3840×1536."},
+    {"id":"REF_768X1728","name":"768 × 1728 — Indoor","category":"referencia","size_mm":[768,1728],"template":"wall","description":"Esboço indoor vertical; referências 768×1728."},
+    {"id":"REF_800X1920","name":"800 × 1920 — Outdoor","category":"referencia","size_mm":[800,1920],"template":"outdoor_1_post","description":"Esboço outdoor vertical; referências Ótica Ouvidor 800×1920."}
+  ]
+}

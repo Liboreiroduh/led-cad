@@ -1,0 +1,13 @@
+{
+  "id": "CUBO_ESTRUTURAL",
+  "name": "Cubo estrutural — 1000",
+  "category": "referencia",
+  "description": "Geometria livre em barras: cubo de 1000 para editar, duplicar e adaptar no CAD.",
+  "kind": "cube",
+  "defaults": {
+    "panel": {"width": 1000, "height": 1000, "depth": 1000},
+    "installation": {"type": "post", "posts": 0, "ground_clearance": 0, "environment": "indoor"},
+    "profiles": {"frame": "METALON_40x40x2", "secondary": "METALON_40x40x2", "post": "TUBO_219x4.75"}
+  },
+  "rules": {}
+}
