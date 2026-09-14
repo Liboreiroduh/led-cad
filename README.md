@@ -4,6 +4,8 @@ Protótipo local em Python/FastAPI para criar e editar esboços geométricos de 
 
 O aplicativo usa coordenadas em milímetros, canvas 3D editável, presets, exportação técnica e um Copiloto de IA que devolve operações geométricas para o motor CAD.
 
+Leia [CANONICAL_PROJECT_CONTEXT.md](CANONICAL_PROJECT_CONTEXT.md) antes de trabalhar com uma IA externa neste repositório.
+
 ## Executar localmente
 
 ```powershell
