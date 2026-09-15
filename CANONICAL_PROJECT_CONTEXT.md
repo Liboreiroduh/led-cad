@@ -84,7 +84,14 @@ Operações reais aceitas estão centralizadas em `core/ai_ops.py:HANDLERS`, inc
 - Copiloto: usa `/api/ai/plan` e preview antes de Apply.
 - Conexões de IA: manuais, OpenAI-compatible, guardadas somente no backend local.
 - Z.ai/GLM: mantém thinking interno, mas reasoning não pode aparecer na UI.
-- Groq GPT-OSS: a integração precisa garantir structured output e operações efetivas; a task de referência é `TASK_GROQ_CAD_STRUCTURED_OUTPUT.md` no diretório pai de desenvolvimento e deve ser trazida para o repositório somente se for documentação de produto desejada.
+- Groq GPT-OSS (20b/120b): JSON Schema strict (`response_format json_schema`),
+  `reasoning_effort: medium` com `include_reasoning: false` (reasoning nunca
+  aparece na UI, em logs ou no disco) e `max_completion_tokens`. Instruções
+  vão no conteúdo da primeira mensagem de usuário (sem depender de system).
+  Campos opcionais que o strict output devolve como `null` são sanitizados
+  na borda (`services/ai_contract.py:_sanitize_strict_nulls`) antes do motor:
+  opcional null → chave removida; obrigatório null → erro; `False`/`0`/`[]`
+  permanecem. `mirror_elements.pivot` é escalar numérico (mm).
 
 ## Snapshot ativo consultado em 14/09/2026
 

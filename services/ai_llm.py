@@ -195,6 +195,7 @@ def provider_capabilities(cfg: Optional[Dict[str, Any]] = None) -> Dict[str, Any
       max_tokens 8192) — NUNCA recebe JSON Schema do Groq.
     - Groq (api.groq.com): structured output declarado; schema estrito
       (json_schema) somente para modelos GPT-OSS confirmados na doc oficial.
+      GPT-OSS (20b/120b) é reasoning-capable.
     - Conectores OpenAI-compatíveis genéricos: nada de campos Groq/Z.ai."""
     conn = _conn_of(cfg)
     m = re.match(r"^https?://([^/]+)", conn.get("base_url") or "")
@@ -204,9 +205,9 @@ def provider_capabilities(cfg: Optional[Dict[str, Any]] = None) -> Dict[str, Any
         return {"structured_output": False, "strict_schema": False,
                 "reasoning": True, "max_tokens": 8192}
     if host == "api.groq.com":
-        structured = model.startswith("openai/gpt-oss")
-        return {"structured_output": True, "strict_schema": structured,
-                "reasoning": False, "max_tokens": 8192}
+        oss = model.startswith("openai/gpt-oss")
+        return {"structured_output": True, "strict_schema": oss,
+                "reasoning": oss, "max_tokens": 8192}
     return {"structured_output": False, "strict_schema": False,
             "reasoning": False, "max_tokens": None}
 
@@ -265,6 +266,32 @@ def _http_json(url: str, payload: Dict[str, Any], headers: Optional[Dict[str, st
                       status=408) from None
 
 
+def _gpt_oss_messages(messages: List[Dict[str, str]]) -> List[Dict[str, str]]:
+    """Preparação provider-aware APENAS para GPT-OSS (Groq, reasoning): a doc
+    do Groq recomenda NÃO depender de system prompt — as instruções vão no
+    conteúdo da PRIMEIRA mensagem de usuário. A ordem dos turnos (inclusive
+    os do retry guiado: user/assistant/user) é preservada. Z.ai continua
+    recebendo `system`, que já funciona bem com GLM."""
+    sys_txt = "\n\n".join(m.get("content") or "" for m in messages
+                          if m.get("role") == "system")
+    out: List[Dict[str, str]] = []
+    injected = False
+    for m in messages:
+        role = m.get("role") or "user"
+        if role == "system":
+            continue
+        if role == "user" and not injected:
+            content = m.get("content") or ""
+            if sys_txt:
+                content = (f"[INSTRUÇÕES CAD]\n{sys_txt}\n\n"
+                           f"[PEDIDO / CONTEXTO]\n{content}")
+            out.append({"role": "user", "content": content})
+            injected = True
+        else:
+            out.append({"role": role, "content": m.get("content") or ""})
+    return out
+
+
 def chat_completion(messages: List[Dict[str, str]],
                     cfg: Optional[Dict[str, Any]] = None,
                     response_schema: Optional[Dict[str, Any]] = None) -> str:
@@ -278,7 +305,7 @@ def chat_completion(messages: List[Dict[str, str]],
     conn = _active_conn(cfg)
     caps = provider_capabilities(cfg)
     payload: Dict[str, Any] = {
-        "model": conn["model"], "messages": messages, "temperature": 0.2,
+        "model": conn["model"], "temperature": 0.2,
     }
     # GLM-4.5 na Z.ai: o raciocínio INTERNO precisa estar HABILITADO —
     # `thinking: disabled` degradava a capacidade de interpretar/criar/editar.
@@ -287,12 +314,26 @@ def chat_completion(messages: List[Dict[str, str]],
     # logado ou persistido. NUNCA enviar JSON Schema do Groq à Z.ai.
     host = (urllib.parse.urlparse(conn["base_url"]).hostname or "").lower()
     if host == "api.z.ai":
+        payload["messages"] = messages
         payload["thinking"] = {"type": "enabled"}
         payload["max_tokens"] = caps.get("max_tokens") or 8192
-    elif caps.get("structured_output"):
-        payload["max_tokens"] = caps.get("max_tokens") or 8192
+    elif host == "api.groq.com":
+        # Groq substituiu o `max_tokens` legado por `max_completion_tokens`.
+        payload["max_completion_tokens"] = caps.get("max_tokens") or 8192
+        if caps.get("reasoning"):
+            # GPT-OSS (20b/120b) é reasoning-capable: esforço MÉDIO; a cadeia
+            # de raciocínio NUNCA é exposta na UI, logada ou persistida —
+            # o app lê somente choices[0].message.content.
+            payload["reasoning_effort"] = "medium"
+            payload["include_reasoning"] = False
+            payload["messages"] = _gpt_oss_messages(messages)
+        else:
+            payload["messages"] = messages
         if caps.get("strict_schema") and response_schema:
-            # Structured Output EFETIVO (Groq GPT-OSS): json_schema estrito
+            # Structured Output EFETIVO (Groq GPT-OSS): json_schema estrito.
+            # Opcionais do schema são anuláveis → podem chegar `null`; a
+            # tradução para operations esparsas acontece em
+            # services.ai_contract.validate_payload (_sanitize_strict_nulls).
             payload["response_format"] = {
                 "type": "json_schema",
                 "json_schema": {"name": "cad_plan", "strict": True,
@@ -301,6 +342,8 @@ def chat_completion(messages: List[Dict[str, str]],
         else:
             # Groq sem GPT-OSS confirmado: json_object + validação local
             payload["response_format"] = {"type": "json_object"}
+    else:
+        payload["messages"] = messages
     out = _http_json(
         f"{conn['base_url']}/chat/completions", payload,
         headers={"Authorization": f"Bearer {conn['api_key']}"} if conn["api_key"] else None,

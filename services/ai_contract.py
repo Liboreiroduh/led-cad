@@ -89,7 +89,7 @@ OPS: Dict[str, Tuple[Dict[str, str], Dict[str, str]]] = {
                        {"axis": _STR, "anchor": _STR}),
     "distribute_elements": ({"element_ids": _ARR}, {"axis": _STR}),
     "mirror_elements": ({"element_ids": _ARR},
-                        {"plane": _STR, "axis": _STR, "pivot": _VEC,
+                        {"plane": _STR, "axis": _STR, "pivot": _NUM,
                          "copy": _BOOL}),
     "__select": ({"ids": _ARR}, {}),
 }
@@ -106,16 +106,10 @@ def _vec_schema() -> Dict[str, Any]:
 
 
 def _prop_schema(t: str, nullable: bool) -> Dict[str, Any]:
-    if t == _VEC:
-        s = _vec_schema()
-        if not nullable:
-            s["type"] = "object"
-        return s
-    base = {"type": _JSON_TYPE[t]}
-    return {"type": [base["type"], "null"]} if nullable else base
+    """Schema de UM campo. ÚNICA implementação canônica.
 
-
-def _prop_schema(t: str, nullable: bool) -> Dict[str, Any]:
+    Arrays do contrato são listas de IDs → `items: {"type":"string"}` explícito
+    (exigência do structured output estrito)."""
     if t == _VEC:
         s = _vec_schema()
         if not nullable:
@@ -124,6 +118,10 @@ def _prop_schema(t: str, nullable: bool) -> Dict[str, Any]:
     if t == _OBJ:
         s = {"type": "object"}
         return {"type": ["object", "null"]} if nullable else s
+    if t == _ARR:
+        items = {"type": "string"}
+        return ({"type": ["array", "null"], "items": items} if nullable
+                else {"type": "array", "items": items})
     base = {"type": _JSON_TYPE[t]}
     return {"type": [base["type"], "null"]} if nullable else base
 
@@ -181,10 +179,40 @@ def contract_text() -> str:
 
 
 # ------------------------------------------------------------------ validação
+def _sanitize_strict_nulls(op: Dict[str, Any], spec_req: Dict[str, str],
+                           spec_opt: Dict[str, str]) -> Dict[str, Any]:
+    """Traduz a resposta STRICT (structured output Groq GPT-OSS: TODO campo
+    declarado vem presente, opcionais podem vir `null`) para o formato
+    canônico ESPARSO que o motor (`normalize_op`/handlers) consome:
+
+    - opcional com `null` → chave REMOVIDA (nunca chega `None` ao executor);
+    - obrigatório com `null` → chave removida e o check de obrigatórios
+      abaixo gera erro claro;
+    - `operation` NUNCA é removida;
+    - `False`, `0`, `[]` e `""` permanecem (só `None` é descartado);
+    - Vec com componente nula (`{"x":0,"y":null,"z":0}`) → tratado como
+      campo ausente (opcional) ou obrigatório faltante."""
+    clean: Dict[str, Any] = {}
+    for k, v in op.items():
+        if v is None and k != "operation":
+            continue
+        clean[k] = v
+    for k in list(clean):
+        if k == "operation":
+            continue
+        t = spec_req.get(k) or spec_opt.get(k)
+        if t == _VEC and isinstance(clean[k], dict) and any(
+                clean[k].get(c) is None for c in ("x", "y", "z")):
+            del clean[k]
+    return clean
+
+
 def validate_payload(data: Any) -> Tuple[List[str], List[Dict[str, Any]],
                                          List[Dict[str, Any]]]:
     """Valida a resposta contra o contrato. Retorna (erros, selects, ops).
 
+    - resposta strict é SANITIZADA na borda (`_sanitize_strict_nulls`) antes
+      de qualquer handler/dry-run — o motor nunca vê `None`;
     - `op` e `type` são REJEITADOS (o canônico é `operation`);
     - `__select` é separado para a UI (tratado em ai_plan);
     - obrigatórios ausentes e campos desconhecidos geram erro claro."""
@@ -219,6 +247,7 @@ def validate_payload(data: Any) -> Tuple[List[str], List[Dict[str, Any]],
             errors.append(f"ops[{i}]: operation desconhecida '{name}'")
             continue
         spec_req, spec_opt = OPS[name]
+        op = _sanitize_strict_nulls(op, spec_req, spec_opt)
         bad = False
         if name == "add_box":
             has_center = all(op.get(k) is not None
