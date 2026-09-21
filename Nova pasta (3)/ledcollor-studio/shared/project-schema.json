@@ -1,0 +1,18 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "LedCollor Studio Project",
+  "type": "object",
+  "required": ["version", "id", "name", "status", "units", "components"],
+  "properties": {
+    "version": { "type": "string" },
+    "id": { "type": "string" },
+    "name": { "type": "string", "minLength": 1 },
+    "slug": { "type": "string", "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$" },
+    "status": { "enum": ["draft", "published", "archived"] },
+    "units": { "const": "mm" },
+    "metadata": { "type": "object" },
+    "parameters": { "type": "object" },
+    "components": { "type": "array" },
+    "notes": { "type": "array", "items": { "type": "string" } }
+  }
+}

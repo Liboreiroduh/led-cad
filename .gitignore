@@ -1,33 +1,54 @@
-# Secrets and local AI configuration
-.env
-.env.*
-data/ai_config.json
+# See https://help.github.com/articles/ignoring-files/ for more about ignoring files.
 
-# Local project/session state and databases
-data/_session*.json
-data/data_qa_ai/
-data/*.db
-*.db
+# dependencies
+node_modules
+/.pnp
+.pnp.*
+.yarn/*
+!.yarn/patches
+!.yarn/plugins
+!.yarn/releases
+!.yarn/versions
 
-# Runtime files
-*.pid
-*.log
-server.*.log
+# testing
+/coverage
 
-# Python cache and virtual environments
-__pycache__/
-**/__pycache__/
-*.py[cod]
-.venv/
-venv/
+# next.js
+/.next/
+/out/
 
-# Editor/OS files
-.vscode/
-.idea/
+# production
+/build
+
+# misc
 .DS_Store
-Thumbs.db
+*.pem
 
-# Generated exports and temporary files
-exports/
-tmp/
-*.pdf
+# debug
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.pnpm-debug.log*
+
+# env files (can opt-in for committing if needed)
+.env*
+
+# vercel
+.vercel
+
+
+# typescript
+*.tsbuildinfo
+next-env.d.ts
+local-*
+.claude
+.z-ai-config
+*.log
+dev.log
+dev.out.log
+test
+prompt
+
+server.log
+# Skills directory
+/skills/

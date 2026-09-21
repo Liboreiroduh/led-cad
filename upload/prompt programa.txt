@@ -1,0 +1,1298 @@
+# PROJETO: LED STRUCTURE CAD
+## Mini-CAD paramétrico para estruturas de painéis de LED
+
+Você atuará como ARQUITETO DE SOFTWARE SÊNIOR + DESENVOLVEDOR PYTHON + ESPECIALISTA EM GEOMETRIA/CAD PARAMÉTRICO.
+
+Este projeto NÃO é um site comum.
+Este projeto NÃO é um gerador de imagens por IA.
+Este projeto NÃO é um AutoCAD completo.
+Este projeto NÃO deve ser reconstruído em Node.js, React, Next.js, Vite ou frameworks semelhantes.
+
+A aplicação deverá ser PYTHON-FIRST.
+
+Antes de escrever código, leia completamente esta especificação.
+
+============================================================
+1. REGRA ARQUITETURAL ABSOLUTA
+============================================================
+
+A fonte de verdade do sistema deve ser PYTHON.
+
+Toda a lógica de:
+
+- geometria;
+- elementos estruturais;
+- medidas;
+- coordenadas;
+- presets;
+- materiais;
+- vistas;
+- cotas;
+- geração de desenho;
+- geração de PDF;
+- exportações;
+- operações da IA;
+
+deve existir no backend/core Python.
+
+NÃO coloque lógica estrutural importante no frontend.
+
+NÃO use Node.js como backend.
+
+NÃO crie uma arquitetura dependente de:
+
+npm build
+npm run dev
+webpack
+vite build
+next build
+
+Evite completamente build frontend se possível.
+
+Preferência:
+
+Python 3.12+
+FastAPI
+Pydantic
+CadQuery / OpenCascade
+ezdxf
+bibliotecas Python adequadas para geometria
+HTML/CSS/JavaScript simples
+Three.js SOMENTE para visualização/manipulação do 3D no navegador
+
+Three.js pode ser carregado diretamente no frontend.
+
+O JavaScript deve ser uma camada fina.
+
+Arquitetura desejada:
+
+                IA
+                 |
+                 v
+        comandos estruturados
+                 |
+                 v
+        CORE PARAMÉTRICO PYTHON
+           /       |       \
+          /        |        \
+     Presets    Geometria    Projeto
+                  |
+        -----------------------
+        |          |          |
+        v          v          v
+       3D         2D         BOM
+        |          |          |
+     Three.js    SVG/DXF     dados
+        \          |          /
+         \         |         /
+          ---- GERADOR PDF ----
+
+Python é a autoridade.
+
+============================================================
+2. OBJETIVO DO PRODUTO
+============================================================
+
+Criar uma espécie de CAD simplificado específico para estruturas
+metálicas utilizadas na instalação de painéis de LED da LED COLLOR.
+
+O objetivo é permitir que um usuário parta de um PRESET estrutural
+e consiga rapidamente produzir um esboço técnico compreensível.
+
+Exemplo:
+
+Painel:
+4000 x 2000 mm
+
+Aplicação:
+Outdoor / DOOH
+
+Instalação:
+1 poste central
+
+Altura inferior do painel:
+3000 mm do solo
+
+Profundidade:
+800 mm
+
+O sistema monta automaticamente uma estrutura inicial.
+
+Depois disso o usuário poderá editar essa estrutura.
+
+A função principal do programa é:
+
+PRESET
+   ↓
+MODELO 3D
+   ↓
+EDIÇÃO
+   ↓
+VISTAS ORTOGRÁFICAS
+   ↓
+COTAS
+   ↓
+PRANCHA TÉCNICA
+   ↓
+PDF
+
+============================================================
+3. IMPORTANTE: NÃO É CÁLCULO ESTRUTURAL
+============================================================
+
+Este software NÃO substitui:
+
+- engenheiro estrutural;
+- ART;
+- cálculo de vento;
+- dimensionamento estrutural;
+- projeto executivo de fabricação.
+
+Ele gera:
+
+ESBOÇO TÉCNICO / PROJETO PARA ORÇAMENTO / COMUNICAÇÃO TÉCNICA.
+
+O engenheiro posteriormente poderá:
+
+- conferir;
+- alterar;
+- dimensionar;
+- aprovar;
+- elaborar projeto executivo.
+
+O PDF fornecido como referência possui inclusive a observação:
+
+"PROJETO SOMENTE PARA ORÇAMENTO NÃO UTILIZAR PARA FABRICAÇÃO"
+
+Esse é exatamente o nível inicial desejado.
+
+============================================================
+4. REFERÊNCIA VISUAL E TÉCNICA
+============================================================
+
+Existe um PDF fornecido junto desta especificação.
+
+ESTUDE O PDF ANTES DE IMPLEMENTAR.
+
+Ele é a principal referência do formato de saída.
+
+Ele mostra uma estrutura para painel LED outdoor aproximadamente 4 x 2 m.
+
+Observe principalmente:
+
+- vista frontal;
+- vista lateral;
+- vista inferior;
+- vista traseira/fundo;
+- vista superior;
+- perspectiva;
+- dimensões;
+- identificação dos perfis;
+- metalons;
+- travessas;
+- diagonais;
+- chapas;
+- poste;
+- base;
+- cotas;
+- lista de materiais.
+
+Não copie cegamente as dimensões estruturais.
+
+Use o documento como REFERÊNCIA DE REPRESENTAÇÃO GRÁFICA.
+
+O sistema deverá conseguir gerar uma prancha de leitura semelhante,
+mas automaticamente a partir da geometria existente no software.
+
+============================================================
+5. EXPERIÊNCIA DE USO
+============================================================
+
+A tela principal deve possuir aproximadamente:
+
+┌──────────────┬─────────────────────────────┬────────────────┐
+│ PROJETO      │                             │ PROPRIEDADES   │
+│              │                             │                │
+│ Dimensões    │          EDITOR 3D          │ Elemento atual │
+│ Instalação   │                             │ Perfil         │
+│ Preset       │                             │ Posição        │
+│ Elementos    │                             │ Comprimento    │
+│              │                             │ Rotação        │
+│              │                             │                │
+├──────────────┴─────────────────────────────┴────────────────┤
+│ IA                                      GERAR PROJETO/PDF │
+└────────────────────────────────────────────────────────────┘
+
+Interface limpa.
+
+Não tente recriar Blender.
+
+Não tente recriar AutoCAD.
+
+Não crie centenas de ferramentas.
+
+============================================================
+6. FERRAMENTAS INICIAIS DO EDITOR
+============================================================
+
+O MVP deverá permitir:
+
+SELEÇÃO
+
+- selecionar elemento;
+- destacar elemento selecionado;
+- mostrar propriedades.
+
+NAVEGAÇÃO
+
+- orbitar;
+- zoom;
+- pan;
+- frontal;
+- lateral;
+- superior;
+- isométrica.
+
+EDIÇÃO
+
+- mover elemento;
+- editar coordenadas numericamente;
+- duplicar;
+- excluir.
+
+ADIÇÃO
+
+- poste;
+- barra/perfil;
+- travessa;
+- diagonal;
+- base;
+- chapa simples.
+
+A interface poderá oferecer:
+
++ Poste
++ Barra
++ Travessa
++ Diagonal
++ Base
++ Chapa
+
+============================================================
+7. MODELO DE DOMÍNIO
+============================================================
+
+Não trate o desenho simplesmente como meshes.
+
+Cada elemento precisa existir semanticamente.
+
+Exemplo:
+
+PROJETO
+ ├── PAINEL
+ ├── POSTES
+ │    └── POSTE-01
+ │
+ ├── QUADRO
+ │    ├── H01
+ │    ├── H02
+ │    ├── V01
+ │    ├── V02
+ │    └── V03
+ │
+ ├── CONTRAVENTAMENTOS
+ │    ├── D01
+ │    └── D02
+ │
+ ├── BASES
+ │    └── BASE-01
+ │
+ └── CHAPAS
+
+Cada elemento deverá ter ID estável.
+
+Exemplo:
+
+POSTE-01
+V01
+V02
+H01
+D01
+
+Nunca baseie a lógica em nomes como:
+
+mesh001
+object007
+cube15
+
+============================================================
+8. UNIDADES
+============================================================
+
+Toda geometria interna será em MILÍMETROS.
+
+Exemplo:
+
+4 metros = 4000
+
+2 metros = 2000
+
+3 metros = 3000
+
+Nunca misturar metros e milímetros internamente.
+
+============================================================
+9. SISTEMA DE COORDENADAS
+============================================================
+
+Defina explicitamente um sistema único.
+
+Sugestão:
+
+X = horizontal / largura
+Y = profundidade
+Z = altura
+
+Origem:
+
+X = centro da estrutura
+Y = centro/profundidade de referência
+Z = solo
+
+Exemplo:
+
+poste central:
+
+X = 0
+Y = 0
+Z = 0
+
+altura inferior do painel:
+
+Z = 3000
+
+Essa convenção deverá ser utilizada por TODO o projeto.
+
+============================================================
+10. MODELO CANÔNICO DO PROJETO
+============================================================
+
+Toda a aplicação deverá operar sobre um modelo estruturado.
+
+Exemplo conceitual:
+
+{
+  "project": {
+    "name": "Painel 4x2 Outdoor",
+    "units": "mm"
+  },
+
+  "panel": {
+    "width": 4000,
+    "height": 2000,
+    "depth": 800
+  },
+
+  "installation": {
+    "type": "post",
+    "ground_clearance": 3000,
+    "environment": "outdoor"
+  },
+
+  "elements": []
+}
+
+Cada elemento:
+
+{
+  "id": "V01",
+  "type": "beam",
+  "profile": "40x40x2",
+  "start": [x, y, z],
+  "end": [x, y, z]
+}
+
+ou uma estrutura equivalente bem projetada.
+
+A geometria deverá sempre poder ser reconstruída a partir deste modelo.
+
+O JSON do projeto é mais importante do que o mesh renderizado.
+
+============================================================
+11. PERFIS
+============================================================
+
+Criar catálogo inicial de perfis.
+
+Exemplos:
+
+METALON_20x20x1.2
+METALON_30x30x1.5
+METALON_40x40x2
+METALON_50x50x2
+METALON_60x60x2
+METALON_80x80x3
+METALON_100x100x3
+
+Cada perfil deverá possuir:
+
+- nome;
+- largura;
+- altura;
+- espessura;
+- material;
+- representação geométrica.
+
+Perfis devem ser reutilizáveis.
+
+Evitar hardcode repetido.
+
+============================================================
+12. BARRAS
+============================================================
+
+Uma barra deverá ser definida preferencialmente por:
+
+START POINT
+END POINT
+PROFILE
+
+Exemplo:
+
+start = [0,0,3000]
+end   = [0,0,5000]
+
+profile = METALON_60x60x2
+
+O engine deve calcular automaticamente:
+
+- comprimento;
+- posição;
+- orientação;
+- geometria 3D.
+
+Isso precisa funcionar também para diagonais.
+
+============================================================
+13. PRESETS
+============================================================
+
+Presets são parte central do projeto.
+
+Criar arquitetura semelhante:
+
+presets/
+    dooh/
+        4x2_1_poste.json
+        4x2_2_postes.json
+        5x3_2_postes.json
+
+    parede/
+    suspenso/
+    rental/
+
+Inicialmente implemente apenas:
+
+DOOH_4X2_1_POSTE
+
+O preset deverá montar automaticamente:
+
+- painel 4000 x 2000;
+- quadro;
+- verticais;
+- horizontais;
+- profundidade;
+- diagonais básicas;
+- poste central;
+- base simplificada;
+- altura do painel = 3000 mm do solo.
+
+IMPORTANTE:
+
+O preset NÃO deve estar desenhado manualmente no frontend.
+
+Ele deve ser uma configuração interpretada pelo engine Python.
+
+============================================================
+14. INSTÂNCIAS E DEPENDÊNCIAS
+============================================================
+
+Os elementos devem manter relações.
+
+Exemplo:
+
+FRAME
+ ├── vertical_left
+ ├── vertical_center
+ ├── vertical_right
+ ├── horizontal_top
+ └── horizontal_bottom
+
+Se a largura mudar:
+
+4000 → 5000
+
+o preset paramétrico deverá conseguir reposicionar os elementos
+quando apropriado.
+
+Mas alterações manuais posteriores não devem ser destruídas
+silenciosamente.
+
+Pense cuidadosamente em:
+
+preset defaults
++
+user overrides
+
+============================================================
+15. EDITOR 3D
+============================================================
+
+O navegador será responsável apenas pela interação visual.
+
+Utilize Three.js se necessário.
+
+Mas NÃO coloque nele o modelo estrutural definitivo.
+
+Fluxo:
+
+Python
+  ↓
+JSON/GLTF
+  ↓
+Three.js
+  ↓
+visualização
+
+Quando o usuário editar algo:
+
+Three.js
+  ↓
+operação
+  ↓
+API Python
+  ↓
+modelo atualizado
+  ↓
+nova geometria
+  ↓
+Three.js
+
+Operações devem possuir semântica.
+
+Exemplo:
+
+MOVE_ELEMENT
+
+{
+   "element_id": "POSTE-01",
+   "delta_x": -400
+}
+
+em vez de editar arbitrariamente buffers gráficos.
+
+============================================================
+16. MANIPULAÇÃO 3D
+============================================================
+
+Inicialmente implemente movimentação simples.
+
+Quando selecionar um elemento:
+
+- destacar visualmente;
+- apresentar gizmo;
+- permitir mover;
+- atualizar propriedades.
+
+Também deverá ser possível editar numericamente:
+
+X
+Y
+Z
+
+Não implemente ferramentas complexas de modelagem livre.
+
+============================================================
+17. SNAP
+============================================================
+
+Implementar snap básico.
+
+Prioridades:
+
+- grid;
+- extremidades;
+- centro;
+- elementos existentes.
+
+Isso permitirá criar barras facilmente.
+
+Exemplo:
+
+clicar ponto A
+clicar ponto B
+
+Sistema cria:
+
+BARRA A → B
+
+============================================================
+18. COTAS
+============================================================
+
+REGRA MUITO IMPORTANTE:
+
+Cotas NÃO devem ser texto manual independente.
+
+Toda cota deve vir da geometria real.
+
+Se o poste for movido:
+
+posição geométrica muda
+        ↓
+medida calculada muda
+        ↓
+cota apresentada muda
+        ↓
+PDF muda
+
+Nunca permitir inconsistência entre desenho e valor mostrado.
+
+============================================================
+19. VISTAS AUTOMÁTICAS
+============================================================
+
+O modelo deverá gerar automaticamente:
+
+FRONTAL
+TRASEIRA
+LATERAL
+SUPERIOR
+ISOMÉTRICA
+
+Se conveniente:
+
+INFERIOR
+
+As vistas devem ser projeções reais da mesma geometria.
+
+NÃO desenhar cada vista separadamente.
+
+A fonte deve ser sempre o modelo 3D.
+
+============================================================
+20. GERAÇÃO 2D
+============================================================
+
+Criar módulo Python independente:
+
+drawing/
+
+Responsável por transformar o projeto em desenho técnico.
+
+Considere:
+
+- projeção ortográfica;
+- linhas;
+- espessuras;
+- cotas;
+- rótulos;
+- identificação dos elementos.
+
+Pode usar:
+
+SVG
+DXF
+
+ou outra estratégia adequada.
+
+Preferencialmente SVG como etapa intermediária para PDF.
+
+============================================================
+21. PDF
+============================================================
+
+Criar um gerador de prancha técnica.
+
+Ele deverá receber o projeto atual.
+
+Gerar automaticamente algo semelhante a:
+
+┌────────────────────────────────────────────────────────┐
+│ LED COLLOR                         PROJETO ESTRUTURAL   │
+├──────────────────────┬─────────────────────────────────┤
+│ VISTA FRONTAL        │ VISTA LATERAL                  │
+│                      │                                 │
+│ desenho + cotas      │ desenho + cotas                │
+├──────────────────────┼─────────────────────────────────┤
+│ VISTA SUPERIOR       │ VISTA TRASEIRA                 │
+│                      │                                 │
+├──────────────────────┴─────────────────────────────────┤
+│ PERSPECTIVA ISOMÉTRICA                                │
+│                                                        │
+├────────────────────────────────────────────────────────┤
+│ MATERIAIS / PERFIS / DADOS DO PROJETO                 │
+└────────────────────────────────────────────────────────┘
+
+Não gerar simplesmente screenshots do canvas.
+
+As vistas 2D devem ser vetoriais sempre que possível.
+
+============================================================
+22. LISTA DE MATERIAIS
+============================================================
+
+O engine deverá conseguir extrair automaticamente:
+
+perfil
+quantidade
+comprimento unitário
+comprimento total
+
+Exemplo:
+
+METALON 60x60x2
+5 peças
+3980 mm
+
+METALON 40x40x2
+8 peças
+1980 mm
+
+Inicialmente não precisa calcular peso com extrema precisão.
+
+Mas deixe arquitetura preparada.
+
+============================================================
+23. IA
+============================================================
+
+A IA NÃO deve desenhar a estrutura diretamente.
+
+A IA NÃO deve gerar código para cada projeto.
+
+A IA NÃO deve modificar Python durante a operação normal.
+
+A IA serve para interpretar intenção do usuário.
+
+Exemplo:
+
+Usuário:
+
+"adicione outro poste 1200 mm para a direita"
+
+IA:
+
+{
+    "operation": "add_post",
+    "x": 1200,
+    "y": 0,
+    "height": 3000
+}
+
+Outro exemplo:
+
+"mova o poste central 400 mm para esquerda"
+
+IA:
+
+{
+    "operation": "move_element",
+    "element_id": "POSTE-01",
+    "delta_x": -400
+}
+
+Então o CORE PYTHON executa a operação.
+
+A IA nunca deve escrever geometria arbitrária diretamente.
+
+============================================================
+24. SEPARAÇÃO FUNDAMENTAL
+============================================================
+
+NUNCA misture:
+
+INTERPRETAÇÃO
+GEOMETRIA
+VISUALIZAÇÃO
+
+São três camadas diferentes.
+
+IA:
+interpretação
+
+Python:
+geometria
+
+Three.js:
+visualização
+
+============================================================
+25. ESTRUTURA DE DIRETÓRIOS
+============================================================
+
+Projete algo próximo de:
+
+app/
+    main.py
+
+core/
+    project.py
+    geometry.py
+    coordinates.py
+    operations.py
+
+models/
+    project.py
+    element.py
+    profile.py
+    preset.py
+
+geometry/
+    beam.py
+    post.py
+    plate.py
+    base.py
+    frame.py
+
+presets/
+    dooh/
+        4x2_1_poste.json
+
+drawing/
+    projections.py
+    dimensions.py
+    svg.py
+    dxf.py
+
+export/
+    pdf.py
+    gltf.py
+
+services/
+    project_service.py
+    preset_service.py
+
+static/
+    index.html
+    css/
+    js/
+
+tests/
+
+Essa é apenas uma referência.
+
+Você pode melhorar a organização, desde que mantenha Python como
+centro absoluto da arquitetura.
+
+============================================================
+26. FRONTEND
+============================================================
+
+O frontend deve ser propositalmente simples.
+
+Preferência:
+
+HTML
+CSS
+JavaScript vanilla
+Three.js
+
+Servidos pelo próprio FastAPI.
+
+Evite criar outro servidor.
+
+Evite Node.
+
+Evite npm.
+
+Evite React.
+
+Evite frontend compilation.
+
+Objetivo:
+
+python main.py
+
+ou:
+
+uvicorn app.main:app
+
+e o sistema funciona.
+
+============================================================
+27. BANCO DE DADOS
+============================================================
+
+Não comece criando arquitetura complexa de banco.
+
+No MVP:
+
+projetos podem ser JSON.
+
+Posteriormente poderá existir SQLite/PostgreSQL.
+
+Não desvie o desenvolvimento agora para:
+
+usuários
+permissões
+cloud
+multi-tenant
+billing
+login
+CRM
+
+Nada disso faz parte desta fase.
+
+============================================================
+28. PRIORIDADE DE DESENVOLVIMENTO
+============================================================
+
+NÃO tente construir tudo simultaneamente.
+
+FASE 1 — MOTOR GEOMÉTRICO
+
+Objetivo:
+
+conseguir gerar por Python:
+
+DOOH 4x2
+1 poste
+3 metros do solo
+
+Com:
+
+- quadro;
+- barras;
+- poste;
+- diagonais;
+- profundidade.
+
+Validar coordenadas.
+
+FASE 2 — VISUALIZAÇÃO
+
+Mostrar estrutura em navegador usando Three.js.
+
+Orbit
+Zoom
+Pan
+
+FASE 3 — SELEÇÃO
+
+Selecionar elementos.
+
+Mostrar ID e propriedades.
+
+FASE 4 — EDIÇÃO
+
+Mover
+Duplicar
+Excluir
+Adicionar barras
+
+FASE 5 — VISTAS
+
+Gerar:
+
+frontal
+lateral
+traseira
+superior
+isométrica
+
+FASE 6 — COTAS
+
+Gerar cotas principais automaticamente.
+
+FASE 7 — PDF
+
+Montar prancha técnica.
+
+FASE 8 — IA
+
+Somente depois conectar linguagem natural às operações existentes.
+
+============================================================
+29. NÃO FAÇA
+============================================================
+
+Não faça:
+
+- autenticação;
+- dashboard empresarial;
+- CRM;
+- permissões;
+- login;
+- painel administrativo;
+- integração Bitrix;
+- deploy cloud complexo;
+- microservices;
+- dockerização desnecessária;
+- Kubernetes;
+- Electron;
+- Next.js;
+- React;
+- backend Node;
+- banco complexo.
+
+Não gaste tempo nisso.
+
+============================================================
+30. TESTE PRINCIPAL
+============================================================
+
+O primeiro teste que precisa funcionar é:
+
+Projeto:
+
+Painel LED outdoor
+4000 mm x 2000 mm
+800 mm profundidade
+3000 mm do solo
+1 poste central
+
+O sistema deve:
+
+1. carregar preset;
+2. gerar geometria;
+3. mostrar 3D;
+4. permitir selecionar elementos;
+5. mostrar propriedades;
+6. gerar frontal;
+7. gerar lateral;
+8. gerar superior;
+9. gerar traseira;
+10. gerar isométrica;
+11. gerar cotas principais;
+12. gerar PDF.
+
+Se isso funcionar bem, o conceito do produto está validado.
+
+============================================================
+31. QUALIDADE DO CÓDIGO
+============================================================
+
+Código deve ser:
+
+- modular;
+- legível;
+- tipado;
+- testável;
+- documentado apenas onde necessário;
+- sem abstrações inúteis.
+
+Use type hints.
+
+Use Pydantic quando fizer sentido.
+
+Evite arquivos gigantes.
+
+Evite funções de centenas de linhas.
+
+Evite dependências desnecessárias.
+
+============================================================
+32. REGRA SOBRE PROBLEMAS
+============================================================
+
+Se alguma biblioteca dificultar o projeto:
+
+NÃO mude toda a arquitetura.
+
+Primeiro analise alternativas Python.
+
+Exemplo:
+
+CadQuery
+OpenCascade
+trimesh
+ezdxf
+Shapely
+
+Escolha a ferramenta adequada para cada camada.
+
+Nenhuma biblioteca individual deve se tornar dona da arquitetura.
+
+Nosso modelo de domínio é a autoridade.
+
+============================================================
+33. REGRA SOBRE DECISÕES
+============================================================
+
+Não invente novos requisitos.
+
+Não altere o escopo sem necessidade.
+
+Não substitua tecnologias principais sem justificar.
+
+Não transforme o projeto em algo maior.
+
+Se precisar tomar uma decisão:
+
+1. escolha a solução mais simples;
+2. preserve a arquitetura Python-first;
+3. minimize dependências;
+4. minimize build;
+5. minimize código;
+6. privilegie determinismo geométrico.
+
+============================================================
+34. FORMA DE TRABALHO
+============================================================
+
+IMPORTANTE:
+
+Não responda apenas com uma enorme explicação teórica.
+
+Você deverá trabalhar no projeto.
+
+Antes de começar:
+
+1. examine os arquivos existentes, caso existam;
+2. examine o PDF de referência;
+3. explique em no máximo 15 linhas a arquitetura encontrada/proposta;
+4. liste as bibliotecas realmente necessárias;
+5. identifique riscos técnicos;
+6. então comece pela FASE 1.
+
+Não implemente várias fases de uma vez sem validar a anterior.
+
+Ao concluir cada fase:
+
+- execute;
+- teste;
+- verifique erros;
+- corrija;
+- informe exatamente o que funciona.
+
+============================================================
+35. ECONOMIA DE CONTEXTO E TOKENS
+============================================================
+
+Este projeto será desenvolvido durante uma sessão limitada.
+
+Portanto:
+
+NÃO fique reescrevendo arquivos que não precisam mudar.
+
+NÃO recrie o projeto inteiro a cada alteração.
+
+NÃO gere explicações gigantes.
+
+NÃO faça refactors cosméticos durante o MVP.
+
+NÃO altere arquitetura funcional sem necessidade.
+
+Trabalhe incrementalmente.
+
+Antes de alterar um arquivo:
+
+pergunte internamente:
+
+"este arquivo realmente precisa ser alterado?"
+
+Preserve código funcional.
+
+============================================================
+36. PROIBIDO CICLO DE REBUILD
+============================================================
+
+Evite completamente o padrão:
+
+alterar frontend
+→ build
+→ erro
+→ mudar configuração
+→ npm
+→ rebuild
+→ alterar bundler
+→ rebuild
+
+Esse foi um problema na versão anterior do projeto.
+
+A nova arquitetura existe justamente para evitar isso.
+
+Objetivo operacional:
+
+alterar Python
+→ reiniciar servidor
+→ testar
+
+ou preferencialmente:
+
+FastAPI reload
+→ testar imediatamente
+
+============================================================
+37. RESULTADO ESPERADO
+============================================================
+
+O produto final deverá funcionar conceitualmente como:
+
+"SketchUp extremamente simplificado para estruturas de painel LED"
+
+com:
+
+PRESETS
++
+EDITOR 3D SIMPLES
++
+GEOMETRIA PARAMÉTRICA
++
+COTAS
++
+VISTAS AUTOMÁTICAS
++
+IA PARA COMANDOS
++
+GERAÇÃO DE PRANCHA PDF
+
+Não queremos modelagem livre.
+
+Queremos VELOCIDADE, PADRONIZAÇÃO e CLAREZA TÉCNICA.
+
+============================================================
+38. PRIMEIRA MISSÃO
+============================================================
+
+Sua primeira missão NÃO é construir a aplicação inteira.
+
+Faça apenas:
+
+FASE 1 — NÚCLEO PARAMÉTRICO.
+
+Implemente em Python um projeto:
+
+DOOH 4x2 outdoor
+1 poste central
+altura de 3000 mm do solo
+profundidade 800 mm
+
+Crie:
+
+- modelo de projeto;
+- modelo de elementos;
+- catálogo inicial de perfis;
+- gerador de barra entre dois pontos;
+- quadro 4000x2000;
+- poste central;
+- profundidade;
+- travessas;
+- diagonais;
+- preset correspondente.
+
+Depois gere alguma visualização ou exportação simples que permita
+verificar que a geometria está correta.
+
+NÃO avance para IA.
+
+NÃO avance para interface completa.
+
+NÃO avance para banco.
+
+NÃO avance para autenticação.
+
+Valide primeiro o coração geométrico.
+
+Somente depois prossiga para a próxima fase.

@@ -1,0 +1,1029 @@
+{
+ "saved_at": "2026-09-19 20:47:01",
+ "preset_id": "REF_1000X1000",
+ "display_name": "1000 × 1000 — Rental 19/09/2026",
+ "model": {
+  "project": {
+   "name": "1000 × 1000 — Rental",
+   "client": "",
+   "units": "mm"
+  },
+  "panel": {
+   "width": 1000.0,
+   "height": 1000.0,
+   "depth": 600.0
+  },
+  "installation": {
+   "type": "rental",
+   "posts": 2,
+   "ground_clearance": 800.0,
+   "environment": "indoor"
+  },
+  "elements": [
+   {
+    "id": "PAINEL-LED",
+    "type": "panel",
+    "role": "panel",
+    "profile": null,
+    "start": null,
+    "end": null,
+    "center": {
+     "x": 0.0,
+     "y": 0.0,
+     "z": 1300.0
+    },
+    "size_x": 1000.0,
+    "size_y": 50.0,
+    "size_z": 1000.0,
+    "label": "PAINEL DE LED",
+    "group": "PAINEL",
+    "shield": false
+   },
+   {
+    "id": "V01",
+    "type": "beam",
+    "role": "vertical",
+    "profile": "METALON_60x60x2",
+    "start": {
+     "x": -500.0,
+     "y": 300.0,
+     "z": 800.0
+    },
+    "end": {
+     "x": -500.0,
+     "y": 300.0,
+     "z": 1800.0
+    },
+    "center": null,
+    "size_x": 0.0,
+    "size_y": 0.0,
+    "size_z": 0.0,
+    "label": "V01",
+    "group": "QUADRO",
+    "shield": false
+   },
+   {
+    "id": "VB01",
+    "type": "beam",
+    "role": "vertical",
+    "profile": "METALON_60x60x2",
+    "start": {
+     "x": -500.0,
+     "y": -300.0,
+     "z": 800.0
+    },
+    "end": {
+     "x": -500.0,
+     "y": -300.0,
+     "z": 1800.0
+    },
+    "center": null,
+    "size_x": 0.0,
+    "size_y": 0.0,
+    "size_z": 0.0,
+    "label": "VB01",
+    "group": "QUADRO",
+    "shield": false
+   },
+   {
+    "id": "V02",
+    "type": "beam",
+    "role": "vertical",
+    "profile": "METALON_60x60x2",
+    "start": {
+     "x": 0.0,
+     "y": 300.0,
+     "z": 800.0
+    },
+    "end": {
+     "x": 0.0,
+     "y": 300.0,
+     "z": 1800.0
+    },
+    "center": null,
+    "size_x": 0.0,
+    "size_y": 0.0,
+    "size_z": 0.0,
+    "label": "V02",
+    "group": "QUADRO",
+    "shield": false
+   },
+   {
+    "id": "VB02",
+    "type": "beam",
+    "role": "vertical",
+    "profile": "METALON_60x60x2",
+    "start": {
+     "x": 0.0,
+     "y": -300.0,
+     "z": 800.0
+    },
+    "end": {
+     "x": 0.0,
+     "y": -300.0,
+     "z": 1800.0
+    },
+    "center": null,
+    "size_x": 0.0,
+    "size_y": 0.0,
+    "size_z": 0.0,
+    "label": "VB02",
+    "group": "QUADRO",
+    "shield": false
+   },
+   {
+    "id": "V03",
+    "type": "beam",
+    "role": "vertical",
+    "profile": "METALON_60x60x2",
+    "start": {
+     "x": 500.0,
+     "y": 300.0,
+     "z": 800.0
+    },
+    "end": {
+     "x": 500.0,
+     "y": 300.0,
+     "z": 1800.0
+    },
+    "center": null,
+    "size_x": 0.0,
+    "size_y": 0.0,
+    "size_z": 0.0,
+    "label": "V03",
+    "group": "QUADRO",
+    "shield": false
+   },
+   {
+    "id": "VB03",
+    "type": "beam",
+    "role": "vertical",
+    "profile": "METALON_60x60x2",
+    "start": {
+     "x": 500.0,
+     "y": -300.0,
+     "z": 800.0
+    },
+    "end": {
+     "x": 500.0,
+     "y": -300.0,
+     "z": 1800.0
+    },
+    "center": null,
+    "size_x": 0.0,
+    "size_y": 0.0,
+    "size_z": 0.0,
+    "label": "VB03",
+    "group": "QUADRO",
+    "shield": false
+   },
+   {
+    "id": "HS01",
+    "type": "beam",
+    "role": "horizontal",
+    "profile": "METALON_60x60x2",
+    "start": {
+     "x": -500.0,
+     "y": 300.0,
+     "z": 1800.0
+    },
+    "end": {
+     "x": 500.0,
+     "y": 300.0,
+     "z": 1800.0
+    },
+    "center": null,
+    "size_x": 0.0,
+    "size_y": 0.0,
+    "size_z": 0.0,
+    "label": "HS01",
+    "group": "QUADRO",
+    "shield": false
+   },
+   {
+    "id": "HI01",
+    "type": "beam",
+    "role": "horizontal",
+    "profile": "METALON_60x60x2",
+    "start": {
+     "x": -500.0,
+     "y": 300.0,
+     "z": 800.0
+    },
+    "end": {
+     "x": 500.0,
+     "y": 300.0,
+     "z": 800.0
+    },
+    "center": null,
+    "size_x": 0.0,
+    "size_y": 0.0,
+    "size_z": 0.0,
+    "label": "HI01",
+    "group": "QUADRO",
+    "shield": false
+   },
+   {
+    "id": "HSB01",
+    "type": "beam",
+    "role": "horizontal",
+    "profile": "METALON_60x60x2",
+    "start": {
+     "x": -500.0,
+     "y": -300.0,
+     "z": 1800.0
+    },
+    "end": {
+     "x": 500.0,
+     "y": -300.0,
+     "z": 1800.0
+    },
+    "center": null,
+    "size_x": 0.0,
+    "size_y": 0.0,
+    "size_z": 0.0,
+    "label": "HSB01",
+    "group": "QUADRO",
+    "shield": false
+   },
+   {
+    "id": "HIB01",
+    "type": "beam",
+    "role": "horizontal",
+    "profile": "METALON_60x60x2",
+    "start": {
+     "x": -500.0,
+     "y": -300.0,
+     "z": 800.0
+    },
+    "end": {
+     "x": 500.0,
+     "y": -300.0,
+     "z": 800.0
+    },
+    "center": null,
+    "size_x": 0.0,
+    "size_y": 0.0,
+    "size_z": 0.0,
+    "label": "HIB01",
+    "group": "QUADRO",
+    "shield": false
+   },
+   {
+    "id": "HM01",
+    "type": "beam",
+    "role": "horizontal",
+    "profile": "METALON_40x40x2",
+    "start": {
+     "x": -500.0,
+     "y": 300.0,
+     "z": 1300.0
+    },
+    "end": {
+     "x": 500.0,
+     "y": 300.0,
+     "z": 1300.0
+    },
+    "center": null,
+    "size_x": 0.0,
+    "size_y": 0.0,
+    "size_z": 0.0,
+    "label": "HM01",
+    "group": "QUADRO",
+    "shield": false
+   },
+   {
+    "id": "HMB01",
+    "type": "beam",
+    "role": "horizontal",
+    "profile": "METALON_40x40x2",
+    "start": {
+     "x": -500.0,
+     "y": -300.0,
+     "z": 1300.0
+    },
+    "end": {
+     "x": 500.0,
+     "y": -300.0,
+     "z": 1300.0
+    },
+    "center": null,
+    "size_x": 0.0,
+    "size_y": 0.0,
+    "size_z": 0.0,
+    "label": "HMB01",
+    "group": "QUADRO",
+    "shield": false
+   },
+   {
+    "id": "TS01",
+    "type": "beam",
+    "role": "trave",
+    "profile": "METALON_40x40x2",
+    "start": {
+     "x": -500.0,
+     "y": -300.0,
+     "z": 1800.0
+    },
+    "end": {
+     "x": -500.0,
+     "y": 300.0,
+     "z": 1800.0
+    },
+    "center": null,
+    "size_x": 0.0,
+    "size_y": 0.0,
+    "size_z": 0.0,
+    "label": "TS01",
+    "group": "TRAVESSAS",
+    "shield": false
+   },
+   {
+    "id": "TIN01",
+    "type": "beam",
+    "role": "trave",
+    "profile": "METALON_40x40x2",
+    "start": {
+     "x": -500.0,
+     "y": -300.0,
+     "z": 800.0
+    },
+    "end": {
+     "x": -500.0,
+     "y": 300.0,
+     "z": 800.0
+    },
+    "center": null,
+    "size_x": 0.0,
+    "size_y": 0.0,
+    "size_z": 0.0,
+    "label": "TIn01",
+    "group": "TRAVESSAS",
+    "shield": false
+   },
+   {
+    "id": "TM01",
+    "type": "beam",
+    "role": "trave",
+    "profile": "METALON_40x40x2",
+    "start": {
+     "x": -500.0,
+     "y": -300.0,
+     "z": 1300.0
+    },
+    "end": {
+     "x": -500.0,
+     "y": 300.0,
+     "z": 1300.0
+    },
+    "center": null,
+    "size_x": 0.0,
+    "size_y": 0.0,
+    "size_z": 0.0,
+    "label": "TM01",
+    "group": "TRAVESSAS",
+    "shield": false
+   },
+   {
+    "id": "TS02",
+    "type": "beam",
+    "role": "trave",
+    "profile": "METALON_40x40x2",
+    "start": {
+     "x": 0.0,
+     "y": -300.0,
+     "z": 1800.0
+    },
+    "end": {
+     "x": 0.0,
+     "y": 300.0,
+     "z": 1800.0
+    },
+    "center": null,
+    "size_x": 0.0,
+    "size_y": 0.0,
+    "size_z": 0.0,
+    "label": "TS02",
+    "group": "TRAVESSAS",
+    "shield": false
+   },
+   {
+    "id": "TIN02",
+    "type": "beam",
+    "role": "trave",
+    "profile": "METALON_40x40x2",
+    "start": {
+     "x": 0.0,
+     "y": -300.0,
+     "z": 800.0
+    },
+    "end": {
+     "x": 0.0,
+     "y": 300.0,
+     "z": 800.0
+    },
+    "center": null,
+    "size_x": 0.0,
+    "size_y": 0.0,
+    "size_z": 0.0,
+    "label": "TIn02",
+    "group": "TRAVESSAS",
+    "shield": false
+   },
+   {
+    "id": "TM02",
+    "type": "beam",
+    "role": "trave",
+    "profile": "METALON_40x40x2",
+    "start": {
+     "x": 0.0,
+     "y": -300.0,
+     "z": 1300.0
+    },
+    "end": {
+     "x": 0.0,
+     "y": 300.0,
+     "z": 1300.0
+    },
+    "center": null,
+    "size_x": 0.0,
+    "size_y": 0.0,
+    "size_z": 0.0,
+    "label": "TM02",
+    "group": "TRAVESSAS",
+    "shield": false
+   },
+   {
+    "id": "TS03",
+    "type": "beam",
+    "role": "trave",
+    "profile": "METALON_40x40x2",
+    "start": {
+     "x": 500.0,
+     "y": -300.0,
+     "z": 1800.0
+    },
+    "end": {
+     "x": 500.0,
+     "y": 300.0,
+     "z": 1800.0
+    },
+    "center": null,
+    "size_x": 0.0,
+    "size_y": 0.0,
+    "size_z": 0.0,
+    "label": "TS03",
+    "group": "TRAVESSAS",
+    "shield": false
+   },
+   {
+    "id": "TIN03",
+    "type": "beam",
+    "role": "trave",
+    "profile": "METALON_40x40x2",
+    "start": {
+     "x": 500.0,
+     "y": -300.0,
+     "z": 800.0
+    },
+    "end": {
+     "x": 500.0,
+     "y": 300.0,
+     "z": 800.0
+    },
+    "center": null,
+    "size_x": 0.0,
+    "size_y": 0.0,
+    "size_z": 0.0,
+    "label": "TIn03",
+    "group": "TRAVESSAS",
+    "shield": false
+   },
+   {
+    "id": "TM03",
+    "type": "beam",
+    "role": "trave",
+    "profile": "METALON_40x40x2",
+    "start": {
+     "x": 500.0,
+     "y": -300.0,
+     "z": 1300.0
+    },
+    "end": {
+     "x": 500.0,
+     "y": 300.0,
+     "z": 1300.0
+    },
+    "center": null,
+    "size_x": 0.0,
+    "size_y": 0.0,
+    "size_z": 0.0,
+    "label": "TM03",
+    "group": "TRAVESSAS",
+    "shield": false
+   },
+   {
+    "id": "DS01",
+    "type": "beam",
+    "role": "diagonal",
+    "profile": "METALON_40x40x2",
+    "start": {
+     "x": -500.0,
+     "y": -300.0,
+     "z": 1800.0
+    },
+    "end": {
+     "x": 0.0,
+     "y": 300.0,
+     "z": 1800.0
+    },
+    "center": null,
+    "size_x": 0.0,
+    "size_y": 0.0,
+    "size_z": 0.0,
+    "label": "DS01",
+    "group": "CONTRAVENTAMENTO",
+    "shield": false
+   },
+   {
+    "id": "DS02",
+    "type": "beam",
+    "role": "diagonal",
+    "profile": "METALON_40x40x2",
+    "start": {
+     "x": 0.0,
+     "y": 300.0,
+     "z": 1800.0
+    },
+    "end": {
+     "x": 500.0,
+     "y": -300.0,
+     "z": 1800.0
+    },
+    "center": null,
+    "size_x": 0.0,
+    "size_y": 0.0,
+    "size_z": 0.0,
+    "label": "DS02",
+    "group": "CONTRAVENTAMENTO",
+    "shield": false
+   },
+   {
+    "id": "DI03",
+    "type": "beam",
+    "role": "diagonal",
+    "profile": "METALON_40x40x2",
+    "start": {
+     "x": -500.0,
+     "y": -300.0,
+     "z": 800.0
+    },
+    "end": {
+     "x": 0.0,
+     "y": 300.0,
+     "z": 800.0
+    },
+    "center": null,
+    "size_x": 0.0,
+    "size_y": 0.0,
+    "size_z": 0.0,
+    "label": "DI03",
+    "group": "CONTRAVENTAMENTO",
+    "shield": false
+   },
+   {
+    "id": "DI04",
+    "type": "beam",
+    "role": "diagonal",
+    "profile": "METALON_40x40x2",
+    "start": {
+     "x": 0.0,
+     "y": 300.0,
+     "z": 800.0
+    },
+    "end": {
+     "x": 500.0,
+     "y": -300.0,
+     "z": 800.0
+    },
+    "center": null,
+    "size_x": 0.0,
+    "size_y": 0.0,
+    "size_z": 0.0,
+    "label": "DI04",
+    "group": "CONTRAVENTAMENTO",
+    "shield": false
+   },
+   {
+    "id": "DL01",
+    "type": "beam",
+    "role": "diagonal",
+    "profile": "METALON_40x40x2",
+    "start": {
+     "x": -500.0,
+     "y": -300.0,
+     "z": 800.0
+    },
+    "end": {
+     "x": -500.0,
+     "y": 300.0,
+     "z": 1800.0
+    },
+    "center": null,
+    "size_x": 0.0,
+    "size_y": 0.0,
+    "size_z": 0.0,
+    "label": "DL01",
+    "group": "CONTRAVENTAMENTO",
+    "shield": false
+   },
+   {
+    "id": "DL02",
+    "type": "beam",
+    "role": "diagonal",
+    "profile": "METALON_40x40x2",
+    "start": {
+     "x": -500.0,
+     "y": -300.0,
+     "z": 1800.0
+    },
+    "end": {
+     "x": -500.0,
+     "y": 300.0,
+     "z": 800.0
+    },
+    "center": null,
+    "size_x": 0.0,
+    "size_y": 0.0,
+    "size_z": 0.0,
+    "label": "DL02",
+    "group": "CONTRAVENTAMENTO",
+    "shield": false
+   },
+   {
+    "id": "DR03",
+    "type": "beam",
+    "role": "diagonal",
+    "profile": "METALON_40x40x2",
+    "start": {
+     "x": 500.0,
+     "y": -300.0,
+     "z": 800.0
+    },
+    "end": {
+     "x": 500.0,
+     "y": 300.0,
+     "z": 1800.0
+    },
+    "center": null,
+    "size_x": 0.0,
+    "size_y": 0.0,
+    "size_z": 0.0,
+    "label": "DR03",
+    "group": "CONTRAVENTAMENTO",
+    "shield": false
+   },
+   {
+    "id": "DR04",
+    "type": "beam",
+    "role": "diagonal",
+    "profile": "METALON_40x40x2",
+    "start": {
+     "x": 500.0,
+     "y": -300.0,
+     "z": 1800.0
+    },
+    "end": {
+     "x": 500.0,
+     "y": 300.0,
+     "z": 800.0
+    },
+    "center": null,
+    "size_x": 0.0,
+    "size_y": 0.0,
+    "size_z": 0.0,
+    "label": "DR04",
+    "group": "CONTRAVENTAMENTO",
+    "shield": false
+   },
+   {
+    "id": "LST-01",
+    "type": "plate",
+    "role": "base",
+    "profile": null,
+    "start": null,
+    "end": null,
+    "center": {
+     "x": -250.0,
+     "y": 0.0,
+     "z": 75.0
+    },
+    "size_x": 1000.0,
+    "size_y": 800.0,
+    "size_z": 150.0,
+    "label": "LASTRO CONCRETO 1000x800x150",
+    "group": "LASTRO",
+    "shield": false
+   },
+   {
+    "id": "TORRE-01",
+    "type": "beam",
+    "role": "post",
+    "profile": "METALON_100x100x3",
+    "start": {
+     "x": -250.0,
+     "y": 0.0,
+     "z": 162.0
+    },
+    "end": {
+     "x": -250.0,
+     "y": 0.0,
+     "z": 800.0
+    },
+    "center": null,
+    "size_x": 0.0,
+    "size_y": 0.0,
+    "size_z": 0.0,
+    "label": "TORRE 100×100x3 x 638mm",
+    "group": "TORRES RENTAL",
+    "shield": false
+   },
+   {
+    "id": "DIST-01",
+    "type": "plate",
+    "role": "plate",
+    "profile": null,
+    "start": null,
+    "end": null,
+    "center": {
+     "x": -250.0,
+     "y": 0.0,
+     "z": 156.0
+    },
+    "size_x": 400.0,
+    "size_y": 400.0,
+    "size_z": 12.0,
+    "label": "CHAPA DE DISTRIBUIÇÃO 400x400x12",
+    "group": "TORRES RENTAL",
+    "shield": false
+   },
+   {
+    "id": "PLACA-01",
+    "type": "plate",
+    "role": "plate",
+    "profile": null,
+    "start": null,
+    "end": null,
+    "center": {
+     "x": -250.0,
+     "y": 0.0,
+     "z": 795.0
+    },
+    "size_x": 300.0,
+    "size_y": 300.0,
+    "size_z": 10.0,
+    "label": "CHAPA DE LIGAÇÃO 300x300x10",
+    "group": "TORRES RENTAL",
+    "shield": false
+   },
+   {
+    "id": "ESC-01",
+    "type": "beam",
+    "role": "diagonal",
+    "profile": "METALON_50x50x2",
+    "start": {
+     "x": -250.0,
+     "y": 0.0,
+     "z": 800.0
+    },
+    "end": {
+     "x": -250.0,
+     "y": -1200.0,
+     "z": 150.0
+    },
+    "center": null,
+    "size_x": 0.0,
+    "size_y": 0.0,
+    "size_z": 0.0,
+    "label": "ESCORA 50x50x2",
+    "group": "ESCORAS",
+    "shield": false
+   },
+   {
+    "id": "LBR-01",
+    "type": "plate",
+    "role": "base",
+    "profile": null,
+    "start": null,
+    "end": null,
+    "center": {
+     "x": -250.0,
+     "y": -1450.0,
+     "z": 75.0
+    },
+    "size_x": 800.0,
+    "size_y": 500.0,
+    "size_z": 150.0,
+    "label": "LASTRO CONCRETO 800x500x150",
+    "group": "LASTRO",
+    "shield": false
+   },
+   {
+    "id": "LST-02",
+    "type": "plate",
+    "role": "base",
+    "profile": null,
+    "start": null,
+    "end": null,
+    "center": {
+     "x": 250.0,
+     "y": 0.0,
+     "z": 75.0
+    },
+    "size_x": 1000.0,
+    "size_y": 800.0,
+    "size_z": 150.0,
+    "label": "LASTRO CONCRETO 1000x800x150",
+    "group": "LASTRO",
+    "shield": false
+   },
+   {
+    "id": "TORRE-02",
+    "type": "beam",
+    "role": "post",
+    "profile": "METALON_100x100x3",
+    "start": {
+     "x": 250.0,
+     "y": 0.0,
+     "z": 162.0
+    },
+    "end": {
+     "x": 250.0,
+     "y": 0.0,
+     "z": 800.0
+    },
+    "center": null,
+    "size_x": 0.0,
+    "size_y": 0.0,
+    "size_z": 0.0,
+    "label": "TORRE 100×100x3 x 638mm",
+    "group": "TORRES RENTAL",
+    "shield": false
+   },
+   {
+    "id": "DIST-02",
+    "type": "plate",
+    "role": "plate",
+    "profile": null,
+    "start": null,
+    "end": null,
+    "center": {
+     "x": 250.0,
+     "y": 0.0,
+     "z": 156.0
+    },
+    "size_x": 400.0,
+    "size_y": 400.0,
+    "size_z": 12.0,
+    "label": "CHAPA DE DISTRIBUIÇÃO 400x400x12",
+    "group": "TORRES RENTAL",
+    "shield": false
+   },
+   {
+    "id": "PLACA-02",
+    "type": "plate",
+    "role": "plate",
+    "profile": null,
+    "start": null,
+    "end": null,
+    "center": {
+     "x": 250.0,
+     "y": 0.0,
+     "z": 795.0
+    },
+    "size_x": 300.0,
+    "size_y": 300.0,
+    "size_z": 10.0,
+    "label": "CHAPA DE LIGAÇÃO 300x300x10",
+    "group": "TORRES RENTAL",
+    "shield": false
+   },
+   {
+    "id": "ESC-02",
+    "type": "beam",
+    "role": "diagonal",
+    "profile": "METALON_50x50x2",
+    "start": {
+     "x": 250.0,
+     "y": 0.0,
+     "z": 800.0
+    },
+    "end": {
+     "x": 250.0,
+     "y": -1200.0,
+     "z": 150.0
+    },
+    "center": null,
+    "size_x": 0.0,
+    "size_y": 0.0,
+    "size_z": 0.0,
+    "label": "ESCORA 50x50x2",
+    "group": "ESCORAS",
+    "shield": false
+   },
+   {
+    "id": "LBR-02",
+    "type": "plate",
+    "role": "base",
+    "profile": null,
+    "start": null,
+    "end": null,
+    "center": {
+     "x": 250.0,
+     "y": -1450.0,
+     "z": 75.0
+    },
+    "size_x": 800.0,
+    "size_y": 500.0,
+    "size_z": 150.0,
+    "label": "LASTRO CONCRETO 800x500x150",
+    "group": "LASTRO",
+    "shield": false
+   }
+  ],
+  "preset_id": "REF_1000X1000",
+  "revisions": []
+ },
+ "bom_snapshot": {
+  "saved_at": "2026-09-19 20:47:01",
+  "elements": 42,
+  "total_mass_kg": 1000.79,
+  "total_cost_brl": 2940.46,
+  "items": [
+   {
+    "descr": "METALON 100x100 x 3.0mm",
+    "kind": "perfil",
+    "unid": "PCS",
+    "quant": 2,
+    "peso_total": 11.43,
+    "custo_total": 223.49
+   },
+   {
+    "descr": "METALON 40x40 x 2.0mm",
+    "kind": "perfil",
+    "unid": "PCS",
+    "quant": 19,
+    "peso_total": 36.61,
+    "custo_total": 715.56
+   },
+   {
+    "descr": "METALON 50x50 x 2.0mm",
+    "kind": "perfil",
+    "unid": "PCS",
+    "quant": 2,
+    "peso_total": 7.89,
+    "custo_total": 154.2
+   },
+   {
+    "descr": "METALON 60x60 x 2.0mm",
+    "kind": "perfil",
+    "unid": "PCS",
+    "quant": 10,
+    "peso_total": 36.6,
+    "custo_total": 715.46
+   },
+   {
+    "descr": "CHAPA DE DISTRIBUIÇÃO 400x400x12",
+    "kind": "chapa",
+    "unid": "PCS",
+    "quant": 2,
+    "peso_total": 30.14,
+    "custo_total": 641.26
+   },
+   {
+    "descr": "CHAPA DE LIGAÇÃO 300x300x10",
+    "kind": "chapa",
+    "unid": "PCS",
+    "quant": 2,
+    "peso_total": 14.12,
+    "custo_total": 300.42
+   },
+   {
+    "descr": "LASTRO CONCRETO 1000x800x150",
+    "kind": "concreto",
+    "unid": "PCS",
+    "quant": 2,
+    "peso_total": 576.0,
+    "custo_total": 126.72
+   },
+   {
+    "descr": "LASTRO CONCRETO 800x500x150",
+    "kind": "concreto",
+    "unid": "PCS",
+    "quant": 2,
+    "peso_total": 288.0,
+    "custo_total": 63.36
+   }
+  ]
+ }
+}

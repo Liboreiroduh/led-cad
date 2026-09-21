@@ -1,0 +1,85 @@
+<!doctype html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="description" content="LedCollor Studio — protótipo de editor CAD simplificado para painéis LED." />
+    <title>LedCollor Studio</title>
+  </head>
+  <body>
+    <header class="topbar">
+      <div class="brand">
+        <span class="brand-mark" aria-hidden="true"></span>
+        <span class="brand-name">LedCollor <strong>Studio</strong></span>
+      </div>
+      <div class="project-name" id="project-name">Projeto sem título</div>
+      <nav class="topbar-actions" aria-label="Ações do projeto">
+        <button class="btn" type="button" disabled title="Disponível em task futura">Novo</button>
+        <button class="btn" type="button" disabled title="Disponível em task futura">Salvar</button>
+        <button class="btn" type="button" disabled title="Disponível em task futura">Exportar</button>
+        <span class="unit-badge" title="Unidade principal">mm</span>
+      </nav>
+    </header>
+
+    <nav class="tabs" role="tablist" aria-label="Vistas do editor" id="view-tabs">
+      <button class="tab is-active" role="tab" aria-selected="true" data-view="frontal" type="button">Frontal</button>
+      <button class="tab" role="tab" aria-selected="false" data-view="lateral" type="button">Lateral</button>
+      <button class="tab" role="tab" aria-selected="false" data-view="superior" type="button">Superior</button>
+      <button class="tab" role="tab" aria-selected="false" data-view="vista3d" type="button">3D</button>
+    </nav>
+
+    <main class="workspace">
+      <section class="viewport-area">
+        <div class="toolbar" role="toolbar" aria-label="Ferramentas de desenho" id="toolbar">
+          <button class="tool is-active" type="button" data-tool="select" title="Selecionar (V)">
+            <span class="tool-icon" aria-hidden="true">◆</span>Selecionar
+          </button>
+          <button class="tool" type="button" data-tool="pan" title="Pan (H)">
+            <span class="tool-icon" aria-hidden="true">✥</span>Pan
+          </button>
+          <button class="tool" type="button" data-tool="dim" title="Cota (C)">
+            <span class="tool-icon" aria-hidden="true">↔</span>Cota
+          </button>
+          <button class="tool is-toggle" type="button" data-tool="grid" aria-pressed="true" title="Mostrar/ocultar grade (G)">
+            <span class="tool-icon" aria-hidden="true">▦</span>Grade
+          </button>
+          <span class="toolbar-hint">Rodas do mouse: zoom · Botão do meio: pan</span>
+        </div>
+
+        <div class="viewport" id="viewport">
+          <canvas id="canvas"></canvas>
+          <div class="view-3d-placeholder" id="view-3d-placeholder" hidden>
+            <div class="placeholder-box">
+              <span class="placeholder-glyph" aria-hidden="true">◫</span>
+              <h2>Visualizador 3D</h2>
+              <p>Será implementado com Three.js na Task 04.</p>
+            </div>
+          </div>
+          <div class="view-label" id="view-label">Vista frontal</div>
+        </div>
+
+        <footer class="statusbar" aria-label="Estado do editor">
+          <span id="status-cursor">X: 0 mm · Y: 0 mm</span>
+          <span id="status-zoom">Zoom: 100%</span>
+          <span id="status-grid">Grade: 100 mm</span>
+          <span id="status-tool">Ferramenta: Selecionar</span>
+        </footer>
+      </section>
+
+      <aside class="properties" aria-label="Painel de propriedades">
+        <h2 class="properties-title">Propriedades</h2>
+        <div class="empty-state">
+          <span class="empty-glyph" aria-hidden="true">▢</span>
+          <p class="empty-title">Selecione um objeto</p>
+          <p class="empty-hint">As propriedades do objeto selecionado aparecerão aqui.</p>
+        </div>
+      </aside>
+    </main>
+
+    <div class="technical-warning" role="note">
+      <strong>Aviso técnico:</strong> essa é apenas uma referência técnica para montagem, não serve como desenho estrutural final.
+    </div>
+
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>

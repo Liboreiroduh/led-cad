@@ -1,0 +1,13 @@
+{
+  "name": "ai-gateway",
+  "version": "0.1.0",
+  "private": true,
+  "description": "AI gateway — wrapper HTTP do z-ai-web-dev-sdk (GLM gratuito) para o led-cad; porta 3101",
+  "scripts": {
+    "dev": "bun --hot index.ts",
+    "start": "bun index.ts"
+  },
+  "dependencies": {
+    "z-ai-web-dev-sdk": "^0.0.18"
+  }
+}

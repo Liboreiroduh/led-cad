@@ -1,0 +1,30 @@
+{
+  "version": "1.0",
+  "id": "example-led-v-2880x3840",
+  "name": "Painel LED em V — 2880 × 3840",
+  "slug": "painel-led-v-exemplo",
+  "status": "draft",
+  "units": "mm",
+  "metadata": {
+    "client": "",
+    "revision": "01"
+  },
+  "parameters": {
+    "faceWidth": 2880,
+    "faceHeight": 3840,
+    "cabinetWidth": 960,
+    "cabinetHeight": 960,
+    "columns": 3,
+    "rows": 4,
+    "rearOpening": 2000,
+    "freeHeight": 2500,
+    "postDiameter": 150,
+    "baseDiameter": 600,
+    "baseThickness": 25
+  },
+  "components": [],
+  "notes": [
+    "Espessuras visuais são representativas.",
+    "Essa é apenas uma referência técnica para montagem, não serve como desenho estrutural final."
+  ]
+}

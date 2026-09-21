@@ -1,0 +1,10 @@
+node_modules/
+dist/
+.netlify/
+.tools/
+artifacts/
+*.log
+.env
+.env.*
+!.env.example
+.DS_Store

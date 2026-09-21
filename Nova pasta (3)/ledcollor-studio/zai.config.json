@@ -1,0 +1,15 @@
+{
+  "project": "LedCollor Studio",
+  "mode": "prototype",
+  "orchestrator": {
+    "model": "gpt-5.3-fast",
+    "execution": "sequential",
+    "maxActiveTasks": 1,
+    "requireVisualReview": true,
+    "requireBuildBeforeTaskComplete": true
+  },
+  "units": "mm",
+  "threeScale": "1000 mm = 1 world unit",
+  "sourceOfTruth": "shared/project-schema.json",
+  "publicRoute": "/p/{slug}"
+}
