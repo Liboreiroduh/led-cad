@@ -373,6 +373,32 @@ def export_pdf():
     )
 
 
+@app.get("/api/export/pdf/presentation")
+def export_ledcollor_presentation_pdf():
+    """Prancha LED Collor: folhas e cotas derivadas da geometria atual."""
+    from export.ledcollor import build_presentation_pdf
+
+    model = STORE.ensure_loaded().model_copy(deep=True)
+    project_id, revision = STORE.project_id, STORE.revision
+    try:
+        pdf = build_presentation_pdf(model, meta={
+            "title": model.project.name or "Projeto LED",
+            "project_id": project_id,
+            "revision": revision,
+        })
+    except ValueError as exc:
+        raise HTTPException(422, str(exc)) from exc
+    return Response(
+        pdf, media_type="application/pdf",
+        headers={
+            "Content-Disposition": 'attachment; filename="prancha_ledcollor.pdf"',
+            "Cache-Control": "no-store",
+            "X-Project-Id": str(project_id),
+            "X-Project-Revision": str(revision),
+        },
+    )
+
+
 @app.get("/api/export/sheetpack")
 def export_sheetpack():
     from export.sheetpack import build_sheetpack_pdf

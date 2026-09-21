@@ -2,18 +2,27 @@
 
 ## Missão e ordem de leitura
 
-**Fluxo Git do protótipo:** trabalhar e publicar diretamente na versão canônica `main`. Não criar branches de tarefa/revisão nem PRs, salvo solicitação explícita do usuário. Preservar alterações locais e excluir credenciais das publicações.
+**Fluxo Git do protótipo desktop:** a versão canônica é `main`. O usuário autoriza commits locais automáticos ao concluir uma alteração solicitada, sem pedir confirmação. Não criar branches de tarefa/revisão nem PRs, salvo solicitação explícita do usuário. Push exige autorização própria; a autorização de commit não inclui push. Uma proibição explícita na sessão atual prevalece. Preservar alterações locais de terceiros, incluir no commit somente os arquivos pertinentes ao trabalho e nunca incluir credenciais. Restrições de commit em tasks históricas não revogam esta autorização.
+
+## Precedência das tarefas
+
+- `TASK_*.md` são documentos históricos por padrão.
+- Quando o usuário indicar explicitamente uma task, somente aquela task é considerada ativa para o escopo solicitado na sessão.
+- Nunca escolher outra task por estar marcada como `ativa`, `concluída`, `TASK_COMPLETE` ou `implementação concluída`.
+- A instrução explícita da sessão sempre tem precedência sobre documentos históricos encontrados no repositório, inclusive listas antigas de leitura e status.
+- Uma referência a outra task não a torna ativa nem autoriza executar seu backlog. Consultar histórico apenas quando necessário ao trabalho solicitado.
+- Ler ou preparar uma task para outro agente não autoriza implementá-la. Nesta preparação, `TASK_CLAUDE_PRANCHA_FINAL_LEDCOLLOR.md` é o documento indicado para execução futura; a implementação depende da instrução da sessão de execução.
+
+## Ordem de leitura
 
 Evoluir este programa para um produto comercial de **esboços geométricos editáveis de estruturas para painéis LED**, com três entradas equivalentes: editor manual, IA por API e JSON estruturado. A IA precisa compreender o conjunto solicitado; o motor deve construir, validar, persistir e desenhar com precisão.
 
 Antes de alterar código, leia:
 
-1. [TASK_FABLE_ZAI_PILOTO_CAD_CONCLUSAO.md](TASK_FABLE_ZAI_PILOTO_CAD_CONCLUSAO.md): tarefa ativa desta passagem; tem precedência de escopo.
-2. [TASK_CLAUDE_LED_CAD_PROTOTIPO_FINAL.md](TASK_CLAUDE_LED_CAD_PROTOTIPO_FINAL.md): direção e backlog do protótipo; não reabrir seus P0–P4 nesta passagem.
-3. [TASK_CLAUDE_LED_CAD_COMERCIAL.md](TASK_CLAUDE_LED_CAD_COMERCIAL.md): especificação histórica; F1/F2 foram parcialmente implementadas e ela não deve ser usada como quadro de status.
-4. [docs/AUDITORIA_LED_CAD_2026-09-19.md](docs/AUDITORIA_LED_CAD_2026-09-19.md): evidências e limitações da auditoria.
-5. [mini-services/led-cad/CANONICAL_PROJECT_CONTEXT.md](mini-services/led-cad/CANONICAL_PROJECT_CONTEXT.md): arquitetura existente.
-6. Implementações e testes dos caminhos que serão alterados.
+1. Instruções explícitas da sessão e a task indicada pelo usuário, respeitando se o pedido é de leitura, preparação ou execução.
+2. `CLAUDE.md`, quando existir, aplicando a mesma regra de precedência.
+3. [mini-services/led-cad/CANONICAL_PROJECT_CONTEXT.md](mini-services/led-cad/CANONICAL_PROJECT_CONTEXT.md): contexto de arquitetura; não seleciona a tarefa ativa.
+4. Implementações dos caminhos relevantes; consultar testes e auditorias históricas apenas quando necessários ao escopo atual.
 
 Instruções explícitas do usuário prevalecem. A tarefa ativa substitui restrições pontuais conflitantes das antigas `TASK_ZAI_*`, `TASK_GROQ_*` e `ZAI_MODO_EDICAO_DIRETA.md`, inclusive restrições históricas de arquivos ou de testes. Esses documentos continuam como histórico; “concluído” neles não comprova o estado atual. O código comprova o que existe; a task ativa define o que deverá existir. Não confundir os dois.
 
@@ -65,7 +74,7 @@ Instruções explícitas do usuário prevalecem. A tarefa ativa substitui restri
 
 ## Método de implementação
 
-- **Modo atual: prototipagem acelerada.** Priorize implementar o produto inteiro descrito na task, atravessando F1–F7 em ordem arquitetural sem parar para fechar cada gate. Os gates são critérios de validação posterior e um guia para não perder requisitos; não são bloqueios para continuar codando.
+- **Modo atual: PROTOTIPAGEM DESKTOP.** Quando houver pedido de implementação, priorize o escopo da task explicitamente indicada na sessão. Não retomar fases, gates ou backlogs de tasks históricas. Pedidos de leitura ou preparação não autorizam implementar o produto.
 - Faça checagens rápidas somente quando evitarem quebrar o fluxo: executar o aplicativo, smoke test de endpoint alterado e um caso representativo da funcionalidade. Não expandir suites, benchmarks, corpus de IA, CI, testes de concorrência ou testes de navegador nesta etapa, salvo se forem estritamente necessários para diagnosticar um erro que bloqueie a implementação.
 - Ao concluir uma funcionalidade, registre “implementado, validação profunda pendente” em vez de parar para criar evidência completa. A etapa posterior será dedicada a validar, corrigir e endurecer o conjunto.
 - Verificar `git status` e preservar alterações preexistentes. Não executar reset/clean, substituir sessões ou sobrescrever referências privadas.

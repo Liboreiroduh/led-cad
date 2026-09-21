@@ -1,9 +1,10 @@
 # Contexto canônico — LED Structure CAD
 
-> Atualização de direção em 19/09/2026: a evolução ativa está em
-> [TASK_CLAUDE_LED_CAD_COMERCIAL.md](../../TASK_CLAUDE_LED_CAD_COMERCIAL.md),
-> com regras em [AGENTS.md](../../AGENTS.md) e
-> [auditoria reproduzível](../../docs/AUDITORIA_LED_CAD_2026-09-19.md).
+> A tarefa ativa é exclusivamente a indicada pelo usuário na sessão, conforme
+> [AGENTS.md](../../AGENTS.md). `TASK_*.md` são históricos por padrão;
+> este contexto não ativa tarefas nem autoriza implementação.
+> A [auditoria de 19/09/2026](../../docs/AUDITORIA_LED_CAD_2026-09-19.md)
+> é uma referência histórica, não um backlog obrigatório.
 > Este documento descreve a base existente e suas intenções históricas.
 > Garantias abaixo sobre preview, atomicidade e undo têm divergências no código
 > constatadas na auditoria; não tratá-las como testes já aprovados.

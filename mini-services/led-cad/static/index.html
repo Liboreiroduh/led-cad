@@ -909,6 +909,7 @@ table.shortcuts td:first-child { white-space: nowrap; width: 1%; }
     <span class="sp"></span>
     <button class="btn" id="sheetBack">← VOLTAR AO EDITOR</button>
     <button type="button" class="btn primary big" id="sheetPdf">⤓ BAIXAR PDF</button>
+    <button type="button" class="btn big" id="sheetLedcollorPdf" title="Prancha LED Collor com vistas e folhas definidas pela geometria atual">⤓ PDF LED COLLOR</button>
     <button type="button" class="btn big" id="sheetPack" title="Prancha de fabricação 7 folhas (serralheria)">⤓ FABRICAÇÃO 7 FOLHAS</button>
   </div>
   <div class="sh-scroll"><div class="paper" id="sheetPaper">
@@ -967,7 +968,7 @@ table.shortcuts td:first-child { white-space: nowrap; width: 1%; }
         </section>
         <section class="present-card" id="presentCard"></section>
         <div class="present-actions">
-          <button id="presentExport">⤓ HTML interativo</button><button id="presentExportPdf">⤓ PDF</button>
+          <button id="presentExport">⤓ HTML interativo</button><button id="presentExportPdf">⤓ PDF</button><button id="presentLedcollorPdf" title="Prancha LED Collor com cotas e folhas dinâmicas">⤓ PDF LED Collor</button>
         </div>
       </aside>
     </section>
@@ -3076,6 +3077,7 @@ async function openSheet() {
 }
 $("#sheetBack").addEventListener("click", () => $("#sheet").classList.remove("open"));
 $("#sheetPdf").addEventListener("click", () => download("/api/export/pdf", "prancha_led_cad.pdf"));
+$("#sheetLedcollorPdf").addEventListener("click", () => download("/api/export/pdf/presentation", "prancha_ledcollor.pdf"));
 $("#sheetPack").addEventListener("click", () => download("/api/export/sheetpack", "prancha_fabricacao_7folhas.pdf"));
 
 /* ==================== P3 — MODO APRESENTAÇÃO AO CLIENTE ==================== */
@@ -3543,6 +3545,8 @@ ${appJs.replace("import * as THREE from 'three';",
 
 $("#presentExportPdf").addEventListener("click", () =>
   download("/api/export/presentation.pdf", "apresentacao_cliente.pdf"));
+$("#presentLedcollorPdf").addEventListener("click", () =>
+  download("/api/export/pdf/presentation", "prancha_ledcollor.pdf"));
 
 $("#presentExport").addEventListener("click", async () => {
   try {
