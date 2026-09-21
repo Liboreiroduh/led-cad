@@ -184,9 +184,6 @@ def _build_pdf_compact_legacy(model, views: Dict[str, View2D], meta: Dict[str, s
     if "SUPERIOR" in views:
         render_view_pdf(c, views["SUPERIOR"], M + 2, bandB_y, 248, bandB_h,
                         title="VISTA SUPERIOR (MONTAR PISO)", pad_mm=180)
-    if "INFERIOR" in views:
-        render_view_pdf(c, views["INFERIOR"], 264, bandB_y, 182, bandB_h,
-                        title="VISTA INFERIOR (CHAPA EXPANDIDA)", pad_mm=180)
 
     # Prancha visual: vistas, cotas e geometria; sem quantitativos ou custos.
 
@@ -307,12 +304,13 @@ def build_pdf(model, views: Dict[str, View2D], meta: Dict[str, str] | None = Non
         "TRASEIRA": "VISTA TRASEIRA",
         "LATERAL": "VISTA LATERAL",
         "SUPERIOR": "VISTA SUPERIOR",
-        "INFERIOR": "VISTA INFERIOR",
         "ISOMETRICA": "VISTA ISOMÉTRICA",
     }
     # Cada página usa praticamente toda a A2; é propositalmente diferente do
     # layout compacto antigo, em que seis vistas comprimiam as cotas.
-    order = ("FRONTAL", "TRASEIRA", "LATERAL", "SUPERIOR", "INFERIOR", "ISOMETRICA")
+    # VISTA INFERIOR não entra mais na prancha automática; a projeção
+    # permanece disponível no motor (drawing/projections.py) para uso futuro.
+    order = ("FRONTAL", "TRASEIRA", "LATERAL", "SUPERIOR", "ISOMETRICA")
     page_no = 0
     for name in order:
         view = views.get(name)

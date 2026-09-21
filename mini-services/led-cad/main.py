@@ -357,7 +357,7 @@ def get_view(name: str):
 def export_pdf():
     from export.pdf import build_pdf
     model = STORE.ensure_loaded()
-    views = build_views(model, ["FRONTAL", "TRASEIRA", "LATERAL", "SUPERIOR", "INFERIOR", "ISOMETRICA"],
+    views = build_views(model, ["FRONTAL", "TRASEIRA", "LATERAL", "SUPERIOR", "ISOMETRICA"],
                         titles=False)
     preset = load_preset(STORE.preset_id or "REF_4000X2000")
     obra = preset["name"] if preset else model.project.name
