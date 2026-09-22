@@ -1510,6 +1510,11 @@ def ai_plan(body: AiPlanIn):
                                         f"{out['panel']['height']} mm, "
                                         f"{out['op_count']} operações.",
                              "operations": ops, "diff": diff,
+                             # o FRONTEND consome plan.preview (fantasma no
+                             # canvas + counts do APLICAR) — sem este campo a
+                             # UI dizia "nenhuma mudança efetiva" e não oferecia
+                             # aplicar. Mesmo contrato da rota LLM.
+                             "preview": diff,
                              "completeness": out["completeness"],
                              "assumptions": out["assumptions"],
                              "base_revision": STORE.revision,
