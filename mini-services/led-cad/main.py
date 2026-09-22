@@ -1821,5 +1821,9 @@ app.mount("/", NoCacheHTMLStaticFiles(directory="static", html=True), name="stat
 
 
 if __name__ == "__main__":
+    # Processo ÚNICO: o FastAPI serve o frontend (static/) + todas as /api.
+    # Porta configurável via LEDCAD_PORT; padrão 3000 (modo direto local).
+    import os
+
     import uvicorn
-    uvicorn.run(app, host="0.0.0.0", port=3100)
+    uvicorn.run(app, host="127.0.0.1", port=int(os.environ.get("LEDCAD_PORT", "3000")))

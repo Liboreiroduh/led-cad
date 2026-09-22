@@ -23,11 +23,14 @@ LED Structure CAD é um protótipo local em Python/FastAPI para desenhar **esbo�
 
 ## Como executar
 
-Modo direto: executar a partir de `mini-services/led-cad`. No Windows com o
-launcher disponível, usar `py -3.10 -m uvicorn main:app --host 127.0.0.1 --port 3000`.
-No modo shell Next.js, o shell ocupa 3000 e encaminha ao FastAPI em 3100,
-conforme `next.config.ts` e o `package.json` do serviço. Não executar ambos
-na porta 3000. A consolidação da instalação está prevista na fase F0 da task.
+Modo único (padrão): executar a partir de `mini-services/led-cad`.
+No Windows com o launcher disponível, usar
+`py -m uvicorn main:app --host 127.0.0.1 --port 3000` (ou simplesmente `py main.py`).
+O FastAPI sozinho serve o frontend (`static/`) e todas as `/api` — processo único
+na porta 3000 (configurável via env `LEDCAD_PORT`). O shell Next.js da raiz
+(`next.config.ts` + iframe em `src/app/page.tsx`) NÃO faz mais parte do fluxo
+obrigatório: é apenas um proxy legado mantido no repositório, não executado.
+Não executar ambos na porta 3000.
 
 ```powershell
 python -m uvicorn main:app --host 127.0.0.1 --port 3000

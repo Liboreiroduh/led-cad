@@ -52,3 +52,10 @@ prompt
 server.log
 # Skills directory
 /skills/
+
+# local runtime artifacts
+*.pid
+.tmp.drivedownload/
+.tmp.driveupload/
+tool-results/
+test_single3000.pdf

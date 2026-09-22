@@ -64,24 +64,53 @@ def _resolved_preset(data: dict) -> dict:
         "suspended": {"installation": {"type": "suspended", "posts": 2, "ground_clearance": 3000, "environment": "indoor"}, "depth": 600},
     }
     t = templates[template]
+
+    # Geometria específica da referência (cartão do catálogo, mapeada do PDF
+    # original) vence o template genérico. O template é apenas fallback.
+    # Precedência: reference_geometry do cartão > campos soltos do cartão >
+    # template genérico.
+    ref = data.get("reference_geometry") or {}
+
+    # Regra genérica fallback: vertical_spacing_max = 960
+    spacing_max = data.get("vertical_spacing_max", 960)
+    if ref.get("bays"):
+        spacing_max = width / float(ref["bays"])
+
+    installation = {**t["installation"], **data.get("installation", {})}
+    if ref.get("posts") is not None:
+        installation["posts"] = ref["posts"]
+    if ref.get("ground_clearance") is not None:
+        installation["ground_clearance"] = ref["ground_clearance"]
+
+    depth = ref.get("depth") or data.get("depth") or t["depth"]
+
     profiles = {
         "frame": "METALON_60x60x2", "secondary": "METALON_40x40x2",
         "post": t.get("post", "TUBO_219x4.75"), "bracket": "METALON_50x50x2",
         "hanger": "TUBO_76x3.2", "ceiling_beam": "METALON_100x100x3",
         "tower": "METALON_100x100x3", "outrigger": "METALON_50x50x2",
     }
+    if ref.get("post_profile"):
+        profiles["post"] = ref["post_profile"]
+
+    rules = {
+        "vertical_spacing_max": spacing_max,
+        "top_bottom_diagonals": "zigzag", "side_bracing": "X",
+        "wall_gap": 120, "wall_plate": 220, "wall_plate_t": 10, "drop": 1200,
+    }
+    if ref.get("mid_rail_spacing_mm"):
+        rules["mid_rail_spacing_mm"] = ref["mid_rail_spacing_mm"]
+    else:
+        rules["mid_rail"] = True
+
     return {
         **data,
         "defaults": {
-            "panel": {"width": width, "height": height, "depth": data.get("depth", t["depth"])},
-            "installation": {**t["installation"], **data.get("installation", {})},
+            "panel": {"width": width, "height": height, "depth": depth},
+            "installation": installation,
             "profiles": profiles,
         },
-        "rules": {
-            "vertical_spacing_max": data.get("vertical_spacing_max", 960),
-            "top_bottom_diagonals": "zigzag", "side_bracing": "X", "mid_rail": True,
-            "wall_gap": 120, "wall_plate": 220, "wall_plate_t": 10, "drop": 1200,
-        },
+        "rules": rules,
     }
 
 # ---------------------------------------------------------------- catálogo
@@ -278,14 +307,33 @@ class PresetBuilder:
         n_bays = max(2, math.ceil(w / spacing_max))
         return linspace(-w / 2, w / 2, n_bays + 1)
 
+    def _mid_levels(self) -> List[float]:
+        """Níveis Z dos horizontais intermediários (frontal/traseiro e travessas).
+
+        Com mid_rail_spacing_mm na regra: um nível a cada intervalo a partir da
+        base (modulação da referência). Fallback: um único intermediário no
+        meio do painel (comportamento anterior, regra genérica)."""
+        b = self._panel_bounds()
+        z0, z1 = b["z0"], b["z1"]
+        spacing = self.rules.get("mid_rail_spacing_mm")
+        if spacing:
+            spacing = float(spacing)
+            levels: List[float] = []
+            z = z0 + spacing
+            while z < z1 - 1e-6:
+                levels.append(z)
+                z += spacing
+            return levels
+        if bool(self.rules.get("mid_rail", True)):
+            return [(z0 + z1) / 2]
+        return []
+
     def _build_frame(self) -> None:
         b = self._panel_bounds()
         prof = self.profiles["frame"]
         sec = self.profiles["secondary"]
         xs = self._vertical_xs()
         z0, z1 = b["z0"], b["z1"]
-        has_mid = bool(self.rules.get("mid_rail", True))
-        zm = (z0 + z1) / 2
 
         for i, x in enumerate(xs, start=1):
             self.elements.append(self._beam(
@@ -293,7 +341,7 @@ class PresetBuilder:
             self.elements.append(self._beam(
                 f"VB{i:02d}", (x, b["y0"], z0), (x, b["y0"], z1), prof, "vertical", "QUADRO"))
 
-        # horizontais topo/fundo/meio (frontal e traseiro)
+        # horizontais topo/fundo (frontal e traseiro)
         self.elements.append(self._beam(
             "HS01", (xs[0], b["y1"], z1), (xs[-1], b["y1"], z1), prof, "horizontal", "QUADRO"))
         self.elements.append(self._beam(
@@ -302,18 +350,17 @@ class PresetBuilder:
             "HSB01", (xs[0], b["y0"], z1), (xs[-1], b["y0"], z1), prof, "horizontal", "QUADRO"))
         self.elements.append(self._beam(
             "HIB01", (xs[0], b["y0"], z0), (xs[-1], b["y0"], z0), prof, "horizontal", "QUADRO"))
-        if has_mid:
+        # horizontais intermediários (secundários) nos níveis da regra
+        for n, zm in enumerate(self._mid_levels(), start=1):
             self.elements.append(self._beam(
-                "HM01", (xs[0], b["y1"], zm), (xs[-1], b["y1"], zm), sec, "horizontal", "QUADRO"))
+                f"HM{n:02d}", (xs[0], b["y1"], zm), (xs[-1], b["y1"], zm), sec, "horizontal", "QUADRO"))
             self.elements.append(self._beam(
-                "HMB01", (xs[0], b["y0"], zm), (xs[-1], b["y0"], zm), sec, "horizontal", "QUADRO"))
+                f"HMB{n:02d}", (xs[0], b["y0"], zm), (xs[-1], b["y0"], zm), sec, "horizontal", "QUADRO"))
 
     # -------------------------------------------------- travessas prof.
     def _build_depth_traves(self) -> None:
         b = self._panel_bounds()
         sec = self.profiles["secondary"]
-        has_mid = bool(self.rules.get("mid_rail", True))
-        zm = (b["z0"] + b["z1"]) / 2
         n = 0
         for x in self._vertical_xs():
             n += 1
@@ -321,9 +368,9 @@ class PresetBuilder:
                 f"TS{n:02d}", (x, b["y0"], b["z1"]), (x, b["y1"], b["z1"]), sec, "trave", "TRAVESSAS"))
             self.elements.append(self._beam(
                 f"TIn{n:02d}", (x, b["y0"], b["z0"]), (x, b["y1"], b["z0"]), sec, "trave", "TRAVESSAS"))
-            if has_mid:
+            for m, zm in enumerate(self._mid_levels(), start=1):
                 self.elements.append(self._beam(
-                    f"TM{n:02d}", (x, b["y0"], zm), (x, b["y1"], zm), sec, "trave", "TRAVESSAS"))
+                    f"TM{n:02d}-{m:02d}", (x, b["y0"], zm), (x, b["y1"], zm), sec, "trave", "TRAVESSAS"))
 
     # -------------------------------------------------- diagonais
     def _build_diagonals(self) -> None:

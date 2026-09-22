@@ -10,10 +10,12 @@ pydantic==2.12.2
 # starlette 0.27 empacotada no fastapi 0.104.1.
 httpx<0.28
 
-# COMANDOS (modo direto):
+# COMANDO ÚNICO (processo único: FastAPI serve frontend + /api):
 #   cd mini-services/led-cad
-#   py -m uvicorn main:app --host 127.0.0.1 --port 3000   (ou 3100)
-# Modo shell Next: 3000 encaminha para FastAPI 3100 (nao usar ambas).
+#   py main.py   (ou: py -m uvicorn main:app --host 127.0.0.1 --port 3000)
+# Porta alternativa via env: LEDCAD_PORT=3100 py main.py
+# Shell Next.js da raiz: proxy legado, FORA do fluxo obrigatório.
+# Nao executar ambos na porta 3000.
 # Testes (nao tocam data/_session.json real; usam diretorio temporario):
 #   py -B tests/test_groq_contract.py
 #   py -B tests/test_f0_repro.py
