@@ -60,7 +60,9 @@ def _resolved_preset(data: dict) -> dict:
         "outdoor_2_posts": {"installation": {"type": "post", "posts": 2, "ground_clearance": 3000, "environment": "outdoor"}, "depth": 650, "post": "TUBO_219x4.75"},
         "outdoor_2_heavy": {"installation": {"type": "post", "posts": 2, "ground_clearance": 4000, "environment": "outdoor"}, "depth": 800, "post": "TUBO_380_t4.8"},
         "wall": {"installation": {"type": "wall", "posts": 0, "ground_clearance": 2500, "environment": "outdoor"}, "depth": 500},
+        "wall_indoor": {"installation": {"type": "wall", "posts": 0, "ground_clearance": 2500, "environment": "indoor"}, "depth": 500},
         "rental": {"installation": {"type": "rental", "posts": 2, "ground_clearance": 800, "environment": "indoor"}, "depth": 600},
+        "rental_outdoor": {"installation": {"type": "rental", "posts": 2, "ground_clearance": 500, "environment": "outdoor"}, "depth": 600},
         "suspended": {"installation": {"type": "suspended", "posts": 2, "ground_clearance": 3000, "environment": "indoor"}, "depth": 600},
     }
     t = templates[template]

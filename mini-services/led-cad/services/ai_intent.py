@@ -240,7 +240,20 @@ def derive_from_text(text: str, model: Any) -> Dict[str, Any]:
         h = _to_mm(_f(wm.group(2), 0.0) or 0.0)
         if intent == "global_resize" and target_wh:
             w, h = target_wh["w"], target_wh["h"]
-        panel = {"width": round(w), "height": round(h)}
+        # MÓDULO POR APLICAÇÃO (regra de projetista de painel de LED):
+        # rental/evento → gabinete vertical 500×1000; indoor e outdoor →
+        # gabinete 960×960. O nominal em metros ("painel 2x1") é ADAPTADO
+        # ao gabinete mais próximo: cols=round(W/mod_w), rows=round(H/mod_h)
+        # — outdoor 2×1 → 1920×960 (2×1 de 960); rental 2×1 → 2000×1000
+        # (4×1 de 500×1000). A modulação estrutural acompanha o gabinete.
+        rental = bool(re.search(
+            r"\brental\b|\bpalco\b|\bstage\b|\bevento[s]?\b", text or "", re.I))
+        mod_w, mod_h = (500.0, 1000.0) if rental else (960.0, 960.0)
+        cols = max(1, int(round(w / mod_w)))
+        rows = max(1, int(round(h / mod_h)))
+        panel = {"width": round(cols * mod_w), "height": round(rows * mod_h),
+                 "cabinet": {"w": mod_w, "h": mod_h,
+                             "cols": cols, "rows": rows}}
 
     gc = None
     cm = _CLEAR.search(text or "")

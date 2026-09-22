@@ -309,6 +309,138 @@ def ops_apply(body: OpsBatchIn):
     return res
 
 
+# --------------------- Copiloto DOCUMENTO-INTEIRO (edita o JSON do projeto) --
+class AiJsonIn(BaseModel):
+    text: str
+    view: str = "free"
+
+
+def _project_canonical_rules() -> str:
+    """Regras canônicas do documento de projeto (idênticas ao import
+    assistido): unidades, eixos, módulo de gabinete por aplicação, IDs."""
+    return (
+        "REGRAS DO DOCUMENTO\n"
+        "- Todas as medidas em milímetros. Eixos: X = largura; Y = profundidade "
+        "(frente da gaiola Y=0; traseira Y=-profundidade); Z = altura; solo Z=0.\n"
+        "- IDs únicos em MAIÚSCULAS (POSTE-01, V01, H01, BASE-01…). PRESERVE IDs "
+        "e elementos que o pedido não altera — mude o MÍNIMO necessário.\n"
+        "- Módulo de gabinete por aplicação: rental → 500×1000 mm; indoor e "
+        "outdoor → 960×960 mm. Medida nominal em metros é ADAPTADA ao gabinete "
+        "mais próximo: cols=round(largura/mod_w), rows=round(altura/mod_h) — "
+        "ex.: outdoor 2×1 m → 1920×960 (2×1 de 960); rental 2×1 m → 2000×1000 "
+        "(4×1 de 500×1000).\n"
+        "- Painel LED é referência visual (type 'panel'). Gaiola, postes, "
+        "passarela e guarda-corpo são beams/plates coerentes, conectados e "
+        "ortogonais (vertical = z varia; x,y fixos).\n"
+        "- É ESBOÇO geométrico: nada de cálculo estrutural, ART, preço ou "
+        "fabricação.\n"
+        "- installation.type ∈ post|wall|suspended|rental; environment ∈ "
+        "outdoor|indoor.\n")
+
+
+@app.post("/api/ai/json_edit")
+def ai_json_edit(body: AiJsonIn):
+    """Copiloto DOCUMENTO-INTEIRO: recebe o JSON COMPLETO do projeto atual,
+    pede ao LLM o documento corrigido e devolve uma PROPOSTA validada
+    (Pydantic) com resumo do diff — nada muda antes de /api/ai/apply_json.
+    A IA 'mexe só no JSON': qualquer alteração do documento é possível."""
+    import json as _json
+    from services.ai_llm import AiError, chat_completion, load_config
+    model0 = STORE.ensure_loaded()
+    text = (body.text or "").strip()
+    if not text:
+        return {"ok": False, "mode": "answer", "message": "Escreva um pedido."}
+    try:
+        cfg = load_config()
+    except AiError as e:
+        return {"ok": False, "mode": "answer", "message": str(e)}
+    cur_s = _json.dumps(model0.model_dump(), ensure_ascii=False)
+    sys_p = (
+        "Você é projetista de estruturas para painéis de LED trabalhando DENTRO "
+        "de um CAD paramétrico. Recebe o PROJETO COMPLETO em JSON e UM PEDIDO de "
+        "alteração. Devolve o PROJETO INTEIRO atualizado.\n\n"
+        + _project_canonical_rules()
+        + "\nSAÍDA: SOMENTE o objeto JSON completo do projeto atualizado (mesmo "
+          "schema recebido: project, panel, installation, elements, preset_id, "
+          "revisions). Sem Markdown, sem comentários, sem explicações.")
+    user = (f"PEDIDO: {text}\n\nPROJETO ATUAL (JSON completo):\n{cur_s}")
+    try:
+        raw = chat_completion([{"role": "system", "content": sys_p},
+                               {"role": "user", "content": user}], cfg)
+        data = _extract_json_obj(raw)
+    except (AiError, ValueError) as e:
+        safe = str(e).encode("ascii", "backslashreplace").decode("ascii")
+        print(f"[ai-json] provedor falhou: {safe}", flush=True)
+        return {"ok": False, "mode": "plan",
+                "message": f"IA indisponível: {e}",
+                "ai_status": getattr(e, "status", None),
+                "ai_retry_after": getattr(e, "retry_after", None)}
+    except Exception as e:  # rede de segurança: NUNCA 500
+        safe = repr(e).encode("ascii", "backslashreplace").decode("ascii")
+        print(f"[ai-json] erro inesperado: {safe}", flush=True)
+        return {"ok": False, "mode": "plan",
+                "message": "A conexão com a IA caiu no meio da chamada. "
+                           "Tente reenviar o pedido."}
+    # validação dura do documento proposto (+ 1 retry guiado com o erro)
+    try:
+        novo = ProjectModel(**data)
+    except Exception as verr:
+        try:
+            raw2 = chat_completion([
+                {"role": "system", "content": sys_p},
+                {"role": "user", "content": user},
+                {"role": "assistant", "content": raw[:2000]},
+                {"role": "user", "content":
+                    f"O JSON devolvido tem erros de validação: {verr}. "
+                    "Devolva SOMENTE o JSON completo corrigido."}], cfg)
+            novo = ProjectModel(**_extract_json_obj(raw2))
+        except Exception as e2:
+            return {"ok": False, "mode": "plan",
+                    "message": f"A IA devolveu um projeto inválido: {e2}"}
+    # resumo do diff (o projeto atual NÃO é tocado aqui)
+    e0 = {el.id: el.model_dump() for el in model0.elements}
+    e1 = {el.id: el.model_dump() for el in novo.elements}
+    added = len(e1.keys() - e0.keys())
+    removed = len(e0.keys() - e1.keys())
+    edited = sum(1 for k in e0.keys() & e1.keys() if e0[k] != e1[k])
+    p0, p1 = model0.panel, novo.panel
+    summary = (f"Painel {p0.width:.0f}×{p0.height:.0f} → {p1.width:.0f}×"
+               f"{p1.height:.0f} mm · elementos {len(e0)} → {len(e1)} "
+               f"(+{added} · {edited} edit · -{removed})")
+    return {"ok": True, "mode": "json_edit", "engine": "llm-json",
+            "explain": "Proposta por edição do documento JSON — " + summary,
+            "summary": summary, "model": novo.model_dump(),
+            "bom": bom_full(novo), "base_revision": STORE.revision,
+            "can_undo": STORE.can_undo}
+
+
+@app.post("/api/ai/apply_json")
+def ai_apply_json(body: dict):
+    """Aplica o documento proposto pelo Copiloto (validado de novo aqui)
+    com UM snapshot de undo — Ctrl+Z desfaz a troca inteira."""
+    raw = (body or {}).get("model")
+    if not isinstance(raw, dict):
+        raise HTTPException(400, "Documento de projeto ausente.")
+    base_rev = (body or {}).get("base_revision")
+    if base_rev is not None and base_rev != STORE.revision:
+        raise HTTPException(409, f"Proposta obsoleta: criada na revisão "
+                                 f"{base_rev}, projeto está na "
+                                 f"{STORE.revision}. Gere novamente.")
+    try:
+        novo = ProjectModel(**raw)
+    except Exception as e:
+        raise HTTPException(400, f"Projeto inválido: {e}")
+    STORE.push_undo("ia-json")
+    STORE.model = novo
+    STORE.preset_id = ""
+    STORE.commit("ia-json")
+    model = STORE.ensure_loaded()
+    return {"ok": True, "model": model.model_dump(), "bom": bom_full(model),
+            "can_undo": STORE.can_undo, "revision": STORE.revision,
+            "project_id": STORE.project_id,
+            "persist_state": STORE.persist_state}
+
+
 @app.get("/api/bom")
 def get_bom():
     return bom_full(STORE.ensure_loaded())

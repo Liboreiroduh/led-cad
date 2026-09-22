@@ -2094,6 +2094,39 @@ let pendingPlan = null;
 let previewGroup = null;
 const previewTints = new Map();
 
+/* Copiloto DOCUMENTO-INTEIRO: proposta de JSON do projeto inteiro.
+ * APLICAR envia /api/ai/apply_json (valida de novo, undo único);
+ * CANCELAR descarta. Nada muda no canvas antes de aplicar. */
+let pendingJsonPlan = null;
+function renderJsonPlanPreview(r) {
+  pendingJsonPlan = r;
+  const m = pushMsg("ai",
+    (r.explain || "Proposta pronta.") + "\n\nDocumento JSON editado pela IA — "
+    + "revise o resumo e aplique. Ctrl+Z desfaz a troca inteira.", "copiloto · JSON");
+  const act = document.createElement("div");
+  act.className = "mact";
+  act.innerHTML = `<button class="btn primary" data-act="applyjson">✓ APLICAR</button>
+                   <button class="btn" data-act="canceljson">✕ CANCELAR</button>`;
+  m.appendChild(act);
+  act.querySelector("[data-act=applyjson]").addEventListener("click", async () => {
+    if (!pendingJsonPlan) return;
+    try {
+      const res = await api("/api/ai/apply_json", { method: "POST", body: JSON.stringify({
+        model: pendingJsonPlan.model, base_revision: pendingJsonPlan.base_revision }) });
+      pendingJsonPlan = null;
+      adopt(res);
+      pushMsg("ok", "Documento aplicado — projeto substituído pelo JSON da IA "
+              + `(${res.model.elements.length} elementos). Ctrl+Z desfaz.`, "ferramenta");
+      scrollChat();
+    } catch (e) { toast(e.message, false); }
+  });
+  act.querySelector("[data-act=canceljson]").addEventListener("click", () => {
+    pendingJsonPlan = null;
+    pushMsg("ai", "Proposta de JSON cancelada — nada foi alterado.", "copiloto");
+    scrollChat();
+  });
+}
+
 function renderPlanPreview(plan) {
   clearPreview();
   pendingPlan = plan;
@@ -2535,7 +2568,7 @@ async function sendAi() {
   }, 500);
   const selIds = selectedId ? [selectedId] : [...multiIds];
   try {
-    const r = await api("/api/ai/plan", { method: "POST", body: JSON.stringify({
+    const r = await api("/api/ai/json_edit", { method: "POST", body: JSON.stringify({
       text, view: $("#viewbar .vbtn.on")?.dataset.view || "free", selection_ids: selIds }),
       signal: aiAbortCtrl.signal });
     // Descarte de resposta tardia após cancelamento
@@ -2567,6 +2600,10 @@ async function sendAi() {
       pushMsg("ai", r.explain || `${r.selection?.length || 0} selecionado(s).`, "copiloto");
     } else if (r.mode === "answer") {
       pushMsg("ai", r.explain || r.message || "—", r.engine === "llm" ? "copiloto · GLM" : "copiloto");
+    } else if (r.mode === "json_edit") {
+      // DOCUMENTO-INTEIRO: a IA editou o JSON do projeto. APLICAR troca o
+      // documento inteiro (com undo); CANCELAR descarta a proposta.
+      renderJsonPlanPreview(r);
     } else if (r.mode === "plan") {
       const c = r.preview?.counts || {};
       if (!c.total) {
@@ -2960,7 +2997,7 @@ async function renderPresetGrid() {
   try {
     const list = await api("/api/presets");
     window.PRESETS = list || [];
-    const catName = { referencia: "REFERÊNCIA", dooh: "DOOH", parede: "PAREDE", suspenso: "SUSPENSO", rental: "RENTAL", custom: "CUSTOM" };
+    const catName = { referencia: "REFERÊNCIA", "rental-indoor": "RENTAL INDOOR", "rental-outdoor": "RENTAL OUTDOOR", outdoor: "OUTDOOR", indoor: "INDOOR", dooh: "DOOH", parede: "PAREDE", suspenso: "SUSPENSO", rental: "RENTAL", custom: "CUSTOM" };
     const cards = [...list].sort((a, b) => (b.custom === true) - (a.custom === true)).map(p => {
       const cat = (p.category || "outro").toLowerCase();
       return `<div class="preset-card" data-id="${p.id}">
