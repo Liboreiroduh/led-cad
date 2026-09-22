@@ -195,7 +195,10 @@ def compile_spec(spec: Dict[str, Any]) -> Dict[str, Any]:
                         "group": "GAIOLA PROFUNDIDADE", "role": "horizontal"})
 
     # ------- postes: do solo à base da gaiola -------
-    if n_posts > 0 and post_x:
+    # `count` é suficiente: sem posições explícitas, distribui simetricamente
+    # (mesma regra já declarada nas premissas do compilador). Pedidos com
+    # contagem explícita ("1 poste", "dois postes") não podem sair sem postes.
+    if n_posts > 0:
         # posições explícitas vencem; senão distribui simetricamente
         xs_p = post_x if len(post_x) == n_posts else \
             [-pw / 2 + (i + 1) * pw / (n_posts + 1) for i in range(n_posts)]

@@ -1310,40 +1310,57 @@ def ai_plan(body: AiPlanIn):
     if not text:
         return {"ok": False, "mode": "answer", "message": "Escreva um pedido."}
 
-    # INTENÇÃO CANÔNICA (a MESMA do Formulário rápido) — decidida ANTES da
-    # triagem para que criação/redimensionamento nunca caiam no parser rápido
-    # (o fallback offline não desenharia a estrutura → geometria divergente).
     model0 = STORE.ensure_loaded()
 
-    # Enriquecer texto com preset ANTES de build_intent (conhecimento operacional)
-    # Isso garante que "2x1", "painel 2×1" etc. sejam interpretados como colunas×linhas
-    from services import zai_cad_pilot as pilot
-    enriched_intent = pilot.enrich_intent_with_preset(text, None)
-    if enriched_intent:
-        # Se preset detectado, usar intenção enriquecida diretamente
-        intent = enriched_intent
-    else:
-        intent = build_intent(text=text, model=model0)
+    # ---- trilha de desenvolvimento: intent → preset → route → engine ----
+    flow: Dict[str, Any] = {"intent": None, "preset": None,
+                            "route": None, "engine": None}
 
-    # ---------------- PILOTO CAD (Z.ai GLM-4.5) ----------------
-    # Roteador + memória leve por projeto/revisão. Python decide a rota ANTES
-    # de qualquer chamada ao LLM; nenhuma rota contorna preview → aplicar.
+    def _out(res: Dict[str, Any]) -> Dict[str, Any]:
+        flow["engine"] = res.get("engine") or flow["engine"]
+        res["flow"] = dict(flow)
+        return res
+
+    # 1) INTERPRETAÇÃO CANÔNICA — SEMPRE a base do pedido (informação
+    #    explícita do usuário). O preset NUNCA vem antes dela.
+    intent = build_intent(text=text, model=model0)
+    flow["intent"] = {"type": intent.get("intent"),
+                      "source": intent.get("source"),
+                      "panel": intent.get("panel") or None}
+
+    # 2) ENRIQUECIMENTO pela referência citada — SOMENTE campos ausentes
+    #    (precedência: USUÁRIO EXPLÍCITO > REFERÊNCIA/PRESET > DEFAULT).
+    pilot.enrich_intent_with_preset(text, intent)
+    if intent.get("preset"):
+        flow["preset"] = intent["preset"]
+
+    # 3) ROTEADOR determinístico (única classify_with_selection do fluxo) —
+    #    a rota é decidida em Python ANTES de qualquer chamada ao LLM;
+    #    nenhuma rota contorna preview → aplicar.
     cfg0 = load_config()
     conn0 = next((c for c in cfg0["connections"]
                   if c["id"] == cfg0["active_connection_id"]), None)
     pilot_on = pilot.is_zai_pilot(conn0)
+    sel_count = len(body.selection_ids or [])
+    route = pilot.classify_with_selection(text, intent, sel_count)
+    flow["route"] = route
+
+    # ---------------- PILOTO CAD (Z.ai GLM-4.5) ----------------
     if pilot_on:
-        # Enriquecer intenção com preset se detectado (conhecimento operacional)
-        enriched = pilot.enrich_intent_with_preset(text, intent)
-        if enriched:
-            intent = enriched
+        # resposta curta à pergunta pendente funde no texto (memória por
+        # projeto/revisão) e reprocessa o fluxo canônico sobre o texto cheio
         merged = pilot.complete_short_answer(STORE.project_id, STORE.revision, text)
         if merged:
             text = merged
             intent = build_intent(text=text, model=model0)
-        # Classificação com contexto real de seleção
-        sel_count = len(body.selection_ids or [])
-        route = pilot.classify_with_selection(text, intent, sel_count)
+            pilot.enrich_intent_with_preset(text, intent)
+            if intent.get("preset"):
+                flow["preset"] = intent["preset"]
+            flow["intent"] = {"type": intent.get("intent"),
+                              "source": intent.get("source"),
+                              "panel": intent.get("panel") or None}
+            route = pilot.classify_with_selection(text, intent, sel_count)
+            flow["route"] = route
         pilot.memory_update(STORE.project_id, STORE.revision,
                             last_text=(body.text or text)[:400],
                             last_route=route, pending_question=None)
@@ -1353,29 +1370,29 @@ def ai_plan(body: AiPlanIn):
             if absences:
                 validation = pilot.validate_absences_against_model(model0, absences)
                 if validation["message"]:
-                    return {"ok": True, "mode": "answer", "engine": "pilot",
-                            "explain": validation["message"],
-                            "model": model0.model_dump(),
-                            "bom": bom_full(model0), "can_undo": STORE.can_undo}
+                    return _out({"ok": True, "mode": "answer", "engine": "pilot",
+                                 "explain": validation["message"],
+                                 "model": model0.model_dump(),
+                                 "bom": bom_full(model0), "can_undo": STORE.can_undo})
         if route == "question":
             fact = pilot.answer_factual(model0, text)
             if fact:
                 pilot.memory_update(STORE.project_id, STORE.revision,
                                     last_answer=fact[:400])
-                return {"ok": True, "mode": "answer", "engine": "pilot",
-                        "explain": fact, "model": model0.model_dump(),
-                        "bom": bom_full(model0), "can_undo": STORE.can_undo}
-            # pergunta não factual segue para o LLM (rota question via IA)
+                return _out({"ok": True, "mode": "answer", "engine": "pilot",
+                             "explain": fact, "model": model0.model_dump(),
+                             "bom": bom_full(model0), "can_undo": STORE.can_undo})
+            # pergunta não factual segue para o GLM (compreensão semântica)
         elif route == "ambiguous":
             q = ("Quais dimensões de painel você quer (largura × altura em mm, "
                  "ou N×M gabinetes de 960 mm)?" if intent["intent"] in ("new", "global_resize")
                  else "Você quer criar algo novo, editar a seleção ou apenas perguntar?")
             pilot.memory_update(STORE.project_id, STORE.revision,
                                 pending_question=q)
-            return {"ok": True, "mode": "answer", "engine": "pilot",
-                    "explain": q + "\n(responda aqui para completar o pedido)",
-                    "model": model0.model_dump(),
-                    "bom": bom_full(model0), "can_undo": STORE.can_undo}
+            return _out({"ok": True, "mode": "answer", "engine": "pilot",
+                         "explain": q + "\n(responda aqui para completar o pedido)",
+                         "model": model0.model_dump(),
+                         "bom": bom_full(model0), "can_undo": STORE.can_undo})
         elif route == "review":
             # revisão determinística (mesma conferência do /api/ai/review)
             groups = {}
@@ -1407,13 +1424,13 @@ def ai_plan(body: AiPlanIn):
                 for c in checks)
             pilot.memory_update(STORE.project_id, STORE.revision,
                                 last_answer=f"revisão: {len(missing)} pendência(s)")
-            return {"ok": True, "mode": "answer", "engine": "pilot",
-                    "explain": f"Revisão geométrica (rev {STORE.revision}, "
-                               f"{len(model0.elements)} elementos):\n{lines}"
-                               + ("\nPendências: " + ", ".join(missing)
-                                  if missing else "\nNenhuma pendência."),
-                    "model": model0.model_dump(),
-                    "bom": bom_full(model0), "can_undo": STORE.can_undo}
+            return _out({"ok": True, "mode": "answer", "engine": "pilot",
+                         "explain": f"Revisão geométrica (rev {STORE.revision}, "
+                                    f"{len(model0.elements)} elementos):\n{lines}"
+                                    + ("\nPendências: " + ", ".join(missing)
+                                       if missing else "\nNenhuma pendência."),
+                         "model": model0.model_dump(),
+                         "bom": bom_full(model0), "can_undo": STORE.can_undo})
 
     # 1) utilidades determinísticas (mesma política do modo auto) — só quando
     #    a intenção é utilitária/edição local
@@ -1432,13 +1449,13 @@ def ai_plan(body: AiPlanIn):
                         "__blank"}
             if any(str(op.get("operation", "")) in mutating for op in ops):
                 m = STORE.ensure_loaded()
-                return {"ok": True, "mode": "answer", "engine": "quick",
+                return _out({"ok": True, "mode": "answer", "engine": "quick",
                         "explain": "Planejamento não altera o projeto. "
                                    "Para executar, use o botão Desfazer "
                                    "(Ctrl+Z) ou o modal Novo/Presets.",
                         "model": m.model_dump(),
                         "bom": bom_full(m),
-                        "can_undo": STORE.can_undo}
+                        "can_undo": STORE.can_undo})
             try:
                 res = execute_ops(STORE, ops)
                 res["mode"] = "executed"
@@ -1450,44 +1467,56 @@ def ai_plan(body: AiPlanIn):
             res["model"] = m.model_dump()
             res["bom"] = bom_full(m)
             res["can_undo"] = STORE.can_undo
-            return res
+            return _out(res)
 
-    # 1.5) F2/F3: criação/redimensionamento COMPLETO (intenção com painel e
-    #      features resolvidas) → compilador paramétrico determinístico.
-    #      O LLM não calcula geometria de conjuntos completos; ele decide
-    #      intenção (ai_intent) e o Python compila (G01: mesmo resultado do
-    #      formulário). Intenção incompleta segue para a IA real abaixo.
-    if intent["intent"] in ("new", "global_resize") and intent.get("panel"):
-        feats = intent.get("features") or {}
-        if all(v is not None for v in feats.values()):
+    # 4) Pedido trivial COMPLETAMENTE estruturado (regra 8) → compilador
+    #    paramétrico determinístico. O compilador calcula geometria — ele NÃO
+    #    substitui compreensão semântica: só roda com dims explícitas e
+    #    features resolvidas; intenção incompleta segue para o GLM abaixo.
+    #    Criação: não-citados seguem o contrato canônico (gaiola+grades SIM,
+    #    passarela/guarda-corpo NÃO). global_resize: preserva o que existe.
+    if intent["intent"] in ("new", "global_resize"):
+        panel_i = intent.get("panel") or {}
+        if panel_i.get("width") or panel_i.get("height"):
+            feats = dict(intent.get("features") or {})
+            if intent["intent"] == "new":
+                defaults = {"cage": True, "walkway": False, "guardrail": False}
+            else:
+                ctx = intent.get("context") or {}
+                defaults = {"cage": bool(ctx.get("cage")),
+                            "walkway": bool(ctx.get("walkway")),
+                            "guardrail": bool(ctx.get("guardrail"))}
+            for k, dv in defaults.items():
+                if feats.get(k) is None:
+                    feats[k] = dv
+            intent["features"] = feats
             from services.parametric import intent_to_spec, compile_spec
             try:
                 spec = intent_to_spec(intent)
                 out = compile_spec(spec)
                 ops = _cohere_new_panel_elevation(out["ops"])
                 from core.ai_ops import dry_run_diff
-                m = STORE.ensure_loaded()
-                diff = dry_run_diff(m, ops)
+                diff = dry_run_diff(model0, ops)
                 if diff["errors"]:
-                    return {"ok": False, "mode": "plan", "engine": "compiler",
-                            "message": "Compilação recusada: "
-                                       + " · ".join(diff["errors"][:3])}
-                return {"ok": True, "mode": "plan", "engine": "compiler",
-                        "explain": f"Proposta completa via compilador "
-                                   f"paramétrico: painel "
-                                   f"{out['panel']['width']}x"
-                                   f"{out['panel']['height']} mm, "
-                                   f"{out['op_count']} operações.",
-                        "operations": ops, "diff": diff,
-                        "completeness": out["completeness"],
-                        "assumptions": out["assumptions"],
-                        "base_revision": STORE.revision,
-                        "project_id": STORE.project_id,
-                        "model": m.model_dump(),
-                        "can_undo": STORE.can_undo}
+                    return _out({"ok": False, "mode": "plan", "engine": "compiler",
+                                 "message": "Compilação recusada: "
+                                            + " · ".join(diff["errors"][:3])})
+                return _out({"ok": True, "mode": "plan", "engine": "compiler",
+                             "explain": f"Proposta completa via compilador "
+                                        f"paramétrico: painel "
+                                        f"{out['panel']['width']}x"
+                                        f"{out['panel']['height']} mm, "
+                                        f"{out['op_count']} operações.",
+                             "operations": ops, "diff": diff,
+                             "completeness": out["completeness"],
+                             "assumptions": out["assumptions"],
+                             "base_revision": STORE.revision,
+                             "project_id": STORE.project_id,
+                             "model": model0.model_dump(),
+                             "can_undo": STORE.can_undo})
             except OperationError as e:
-                return {"ok": False, "mode": "plan", "engine": "compiler",
-                        "message": str(e)}
+                return _out({"ok": False, "mode": "plan", "engine": "compiler",
+                             "message": str(e)})
 
     # 2) IA real → OPERAÇÕES (sem aplicar) + diff de preview — validação
     #    semântica comum (contrato → normalização → dry-run) e no máx. 1 retry
@@ -1511,6 +1540,10 @@ def ai_plan(body: AiPlanIn):
                           f"- último pedido: {str(mem.get('last_text') or '')[:200]}")
             else:
                 sys_p += "\n\n(sem memória de conversa nesta revisão)"
+        # regra 7: o GLM recebe a REFERÊNCIA PERTINENTE citada no pedido
+        pblock = pilot.preset_block(intent)
+        if pblock:
+            sys_p += "\n\n" + pblock
         if caps.get("structured_output"):
             sys_p += "\n\n" + contract_text()
         schema = RESPONSE_SCHEMA if caps.get("strict_schema") else None
@@ -1524,44 +1557,44 @@ def ai_plan(body: AiPlanIn):
                                                        selection_ids=body.selection_ids,
                                                        model=model))
         if not out["ok"]:
-            return {"ok": False, "mode": "plan", "engine": "llm",
-                    "message": "A IA não produziu operações efetivas para "
-                               "este pedido: " + (out.get("reason") or ""),
-                    "errors": out.get("errors", [])[:2]}
+            return _out({"ok": False, "mode": "plan", "engine": "llm",
+                         "message": "A IA não produziu operações efetivas para "
+                                    "este pedido: " + (out.get("reason") or ""),
+                         "errors": out.get("errors", [])[:2]})
         if out["question"]:
-            return {"ok": True, "mode": "answer", "engine": "llm",
-                    "explain": out.get("explain") or "—"}
+            return _out({"ok": True, "mode": "answer", "engine": "llm",
+                         "explain": out.get("explain") or "—"})
         selection: List[str] = []
         for s in out.get("selects", []):
             selection = s.get("ids", []) or selection
         if not out["ops"] and selection:
-            return {"ok": True, "mode": "select", "engine": "llm",
-                    "explain": out.get("explain") or "—",
-                    "selection": selection,
-                    "message": f"{len(selection)} elemento(s) selecionados."}
+            return _out({"ok": True, "mode": "select", "engine": "llm",
+                         "explain": out.get("explain") or "—",
+                         "selection": selection,
+                         "message": f"{len(selection)} elemento(s) selecionados."})
         # coere elevação e recompute o diff sobre as ops finais (preview fiel)
         ops = _cohere_new_panel_elevation(out["ops"])
         from core.ai_ops import dry_run_diff
         diff = dry_run_diff(model, ops)
         if diff["errors"]:
-            return {"ok": False, "mode": "plan", "engine": "llm",
-                    "message": "A IA gerou operações inválidas para esta ferramenta: "
-                               + " · ".join(diff["errors"][:2])}
-        return {"ok": True, "mode": "plan", "engine": "llm",
-                "explain": out.get("explain") or "",
-                "operations": diff["operations"], "preview": diff,
-                "view": body.view, "selection_ids": body.selection_ids}
+            return _out({"ok": False, "mode": "plan", "engine": "llm",
+                         "message": "A IA gerou operações inválidas para esta ferramenta: "
+                                    + " · ".join(diff["errors"][:2])})
+        return _out({"ok": True, "mode": "plan", "engine": "llm",
+                     "explain": out.get("explain") or "",
+                     "operations": diff["operations"], "preview": diff,
+                     "view": body.view, "selection_ids": body.selection_ids})
     except (AiError, ValueError) as e:
         # logs em CP1252 (Windows) quebram com emojis da mensagem do provedor
         safe = str(e).encode("ascii", "backslashreplace").decode("ascii")
         print(f"[ai-plan] provedor falhou: {safe}", flush=True)
-        return {"ok": False, "mode": "plan",
-                "message": f"IA indisponível: {e}",
-                "ai_status": getattr(e, "status", None),
-                "ai_retry_after": getattr(e, "retry_after", None)}
+        return _out({"ok": False, "mode": "plan",
+                     "message": f"IA indisponível: {e}",
+                     "ai_status": getattr(e, "status", None),
+                     "ai_retry_after": getattr(e, "retry_after", None)})
     except OperationError as e:
-        return {"ok": False, "mode": "plan",
-                "message": f"A IA devolveu operações inválidas: {e}"}
+        return _out({"ok": False, "mode": "plan",
+                     "message": f"A IA devolveu operações inválidas: {e}"})
 
 
 # ------------------------------------------- conector IA (conexões manuais)

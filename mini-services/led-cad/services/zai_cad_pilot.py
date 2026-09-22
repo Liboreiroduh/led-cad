@@ -20,52 +20,7 @@ from typing import Any, Dict, List, Optional
 
 # Importar intent_block de ai_intent (onde está definida)
 from services.ai_intent import intent_block
-# Importar biblioteca de conhecimento de presets
-from services import preset_knowledge as pk
-
-# -------------------------------------------------------- integração presets
-def enrich_intent_with_preset(text: str, intent: Optional[Dict[str, Any]] = None) -> Optional[Dict[str, Any]]:
-    """Detecta referência a preset no texto e enriquece a intenção com dados do preset.
-    Se o usuário menciona um preset (ex: 'REF_4000X2000' ou '4x2 outdoor'),
-    recupera o preset, converte para spec e ajusta a intenção canônica.
-    """
-    preset_id = pk.detect_preset_reference(text)
-    if not preset_id:
-        return None
-    preset = pk.find_preset_by_id(preset_id)
-    if not preset:
-        return None
-    # Converter preset em spec paramétrica
-    spec = pk.preset_to_spec(preset)
-    # Enriquecer intenção com dados do preset
-    enriched = intent or {}
-    enriched["preset_id"] = preset_id
-    enriched["preset_name"] = preset.get("name", "")
-    # Ajustar dimensões do painel baseado no preset
-    panel = enriched.get("panel") or {}
-    panel["width"] = spec["panel"]["width"]
-    panel["height"] = spec["panel"]["height"]
-    panel["depth"] = spec["panel"]["depth"]
-    panel["cabinet"] = {
-        "w": spec["panel"]["cabinet_width"],
-        "h": spec["panel"]["cabinet_height"],
-        "cols": spec["panel"]["columns"],
-        "rows": spec["panel"]["rows"],
-    }
-    enriched["panel"] = panel
-    # Ajustar instalação
-    install = enriched.get("install") or {}
-    install["posts"] = spec["supports"]["count"]
-    install["ground_clearance"] = spec["panel"]["ground_clearance"]
-    enriched["install"] = install
-    # Ajustar features opcionais
-    features = enriched.get("features") or {}
-    features["cage"] = spec["cage"]["enabled"]
-    features["walkway"] = spec["walkway"]["enabled"]
-    features["guardrail"] = spec["guardrail"]["enabled"]
-    enriched["features"] = features
-    return enriched
-# Importar biblioteca de conhecimento de presets
+# Importar biblioteca de conhecimento de presets (IMPORT ÚNICO do módulo)
 from services import preset_knowledge as pk
 
 # Endpoint oficial Z.ai (OpenAI-compatível) e identificador do modelo.
@@ -88,6 +43,104 @@ EDIT_WORDS = re.compile(
     r"adicionar|apague|apagar|exclua|excluir|duplicar|duplicque|gire|girar|"
     r"estique|encurte|alongue|aumente|reduza|espelhe|rotacione)\b", re.I)
 NEGATION_ONLY = re.compile(r"^\s*(sem|n[aã]o quero|tir[ae]|remov[ae])\b.*", re.I)
+
+
+# -------------------------------------------------------- integração presets
+def enrich_intent_with_preset(text: str, intent: Optional[Dict[str, Any]]) -> Dict[str, Any]:
+    """ENRIQUECIMENTO da intenção canônica com a referência citada no texto.
+
+    Fluxo canônico único (a intenção JÁ vem de build_intent): o preset só
+    preenche o que o texto NÃO trouxe — precedência
+    USUÁRIO EXPLÍCITO > REFERÊNCIA/PRESET > DEFAULT.
+
+    - Nunca sobrescreve medida explícita do usuário;
+    - respeita `false` explícito (ex.: "tire a passarela" continua false);
+    - guarda-corpo só vem da referência se não contrariar passarela;
+    - não transforma "N×M gabinetes" (contagem) em preset N×M metros.
+
+    Registra em intent["preset"] o que foi aplicado (trilha de desenvolvimento).
+    """
+    intent = intent if isinstance(intent, dict) else {}
+    if intent.get("preset"):
+        return intent  # enriquecido uma única vez no fluxo
+    preset_id = pk.detect_preset_reference(text)
+    if not preset_id:
+        return intent
+    preset = pk.find_preset_by_id(preset_id)
+    if not preset:
+        return intent
+    spec = pk.preset_to_spec(preset)
+    sp = spec["panel"]
+
+    applied: List[str] = []
+
+    panel = dict(intent.get("panel") or {})
+    if not panel.get("width") and not panel.get("height"):
+        panel["width"] = sp["width"]
+        panel["height"] = sp["height"]
+        applied.append("panel.size")
+    if not panel.get("depth"):
+        panel["depth"] = sp["depth"]
+        applied.append("panel.depth")
+    cab = panel.get("cabinet")
+    if not (cab and cab.get("w")):
+        # Modulação estrutural da referência — NUNCA sobrepõe gabinete
+        # explícito do usuário (ex.: "2 colunas × 1 fileira de 960×960").
+        panel["cabinet"] = {"w": sp["cabinet_width"], "h": sp["cabinet_height"],
+                            "cols": sp["columns"], "rows": sp["rows"]}
+        applied.append("panel.cabinet(modulação da referência)")
+    intent["panel"] = panel
+
+    install = dict(intent.get("install") or {})
+    if install.get("posts") is None:
+        install["posts"] = spec["supports"]["count"]
+        applied.append("install.posts")
+    if install.get("ground_clearance") is None:
+        install["ground_clearance"] = sp["ground_clearance"]
+        applied.append("install.ground_clearance")
+    intent["install"] = install
+
+    features = dict(intent.get("features") or {})
+    for key, src in (("cage", spec["cage"]["enabled"]),
+                     ("walkway", spec["walkway"]["enabled"]),
+                     ("guardrail", spec["guardrail"]["enabled"])):
+        if features.get(key) is None:
+            if key == "guardrail" and src and features.get("walkway") is False:
+                features[key] = False  # guarda-corpo nunca existe sem passarela
+                applied.append("features.guardrail(false — sem passarela)")
+            else:
+                features[key] = src
+                applied.append(f"features.{key}")
+    intent["features"] = features
+
+    ref = preset.get("reference_geometry") or {}
+    intent["preset"] = {
+        "id": preset_id,
+        "name": preset.get("name", ""),
+        "source_pdf": ref.get("source_pdf"),
+        "notes": ref.get("notes", []),
+        "applied_fields": applied,
+    }
+    return intent
+
+
+def preset_block(intent: Optional[Dict[str, Any]]) -> str:
+    """Bloco REFERÊNCIA PERTINENTE para o prompt do GLM (regra 7): dados da
+    referência detectada — o modelo interpreta/adapta, não inventa medidas."""
+    p = (intent or {}).get("preset")
+    if not p:
+        return ""
+    lines = [f"## REFERÊNCIA CITADA: {p.get('name')} ({p.get('id')})"]
+    if p.get("source_pdf"):
+        lines.append(f"- origem do desenho: {p['source_pdf']}")
+    for n in p.get("notes") or []:
+        lines.append(f"- nota da referência: {n}")
+    if p.get("applied_fields"):
+        lines.append("- campos preenchidos pela referência (o texto não "
+                     "especificou): " + ", ".join(p["applied_fields"]))
+    lines.append("- adapte a referência EXATAMENTE ao que o usuário pediu de "
+                 "diferente; o resto segue a referência.")
+    return "\n".join(lines)
 
 
 def is_zai_pilot(conn: Optional[Dict[str, Any]]) -> bool:
@@ -161,8 +214,11 @@ def classify(text: str, intent: Optional[Dict[str, Any]] = None) -> str:
         return "review"
     base = (intent or {}).get("intent")
     if base in ("new", "global_resize"):
-        # pedido de criação sem medidas de painel → ambíguo (perguntar)
-        if not (intent or {}).get("panel"):
+        # pedido de criação sem medidas de painel → ambíguo (perguntar).
+        # Painel {"width": None, "height": None} NÃO é medida: dict sozinho
+        # não autoriza rota de compilação direta.
+        panel_i = (intent or {}).get("panel") or {}
+        if not (panel_i.get("width") or panel_i.get("height")):
             if QUESTION_WORDS.search(t) and not CREATE_WORDS.search(t):
                 return "question"
             return "ambiguous"
@@ -177,18 +233,23 @@ def classify(text: str, intent: Optional[Dict[str, Any]] = None) -> str:
 
 def classify_with_selection(text: str, intent: Optional[Dict[str, Any]] = None,
                             selection_count: int = 0) -> str:
-    """Classifica considerando seleção real: com elementos selecionados + verbos
-    de edição → local_edit; sem seleção + pedido vago → ambiguous."""
-    # Enriquecer intenção com preset se detectado
-    enriched = enrich_intent_with_preset(text, intent)
-    if enriched:
-        intent = enriched
+    """ÚNICA classificação do fluxo (rota escolhida em Python, antes do LLM).
+
+    Considera seleção real: com elementos selecionados + verbos de edição →
+    local_edit; sem seleção + pedido vago → ambiguous.
+    NÃO enriquece com preset: o enriquecimento acontece UMA vez no fluxo
+    principal, antes da classificação."""
     base = classify(text, intent)
     if selection_count > 0 and EDIT_WORDS.search(text or ""):
         return "local_edit"
     if base == "local_edit" and selection_count == 0 and not NEGATION_ONLY.match(text or ""):
-        # Edição local sem seleção específica pode ser ambígua
-        if not any(w in (text or "").lower() for w in ["todos", "todas", "painel", "gaiola", "postes"]):
+        # Edição local sem seleção específica pode ser ambígua — mas alvo
+        # explícito (painel, gaiola, passarela, guarda-corpo, postes,
+        # gabinetes/colunas/fileiras) NÃO é ambíguo.
+        if not any(w in (text or "").lower() for w in
+                   ["todos", "todas", "painel", "gaiola", "postes", "passarela",
+                    "guarda", "gabinete", "coluna", "fileira", "montante",
+                    "travessa"]):
             return "ambiguous"
     return base
 
@@ -256,6 +317,11 @@ def memory_update(project_id: str, revision: int,
     if entry.get("revision") != revision:
         entry = {"revision": revision}  # troca de revisão invalida o anterior
     entry.update({k: v for k, v in fields.items() if v is not None})
+    # Pendências explícitas SÃO limpáveis: pending_question=None aqui significa
+    # "não há mais pergunta pendente" (nunca preservar a anterior).
+    for k in ("pending_question", "pending_plan"):
+        if k in fields and fields[k] is None:
+            entry.pop(k, None)
     entry["updated_at"] = time.time()
     doc[project_id] = entry
     _save(doc)
@@ -305,20 +371,6 @@ def build_selection_context(model: Any, selection_ids: Optional[List[str]] = Non
     return {"selected": selected, "count": len(selected)}
 
 
-def classify_with_selection(text: str, intent: Optional[Dict[str, Any]] = None,
-                            selection_count: int = 0) -> str:
-    """Classifica considerando seleção real: com elementos selecionados + verbos
-    de edição → local_edit; sem seleção + pedido vago → ambiguous."""
-    base = classify(text, intent)
-    if selection_count > 0 and EDIT_WORDS.search(text or ""):
-        return "local_edit"
-    if base == "local_edit" and selection_count == 0 and not NEGATION_ONLY.match(text or ""):
-        # Edição local sem seleção específica pode ser ambígua
-        if not any(w in (text or "").lower() for w in ["todos", "todas", "painel", "gaiola", "postes"]):
-            return "ambiguous"
-    return base
-
-
 # -------------------------------------------------- ausências explícitas
 def detect_explicit_absences(text: str) -> List[str]:
     """Detecta pedidos explícitos de ausência: 'sem passarela', 'sem guarda-corpo'."""
@@ -330,8 +382,8 @@ def detect_explicit_absences(text: str) -> List[str]:
         (r"\bsem\s+guarda[- ]?corpo\b", "guarda-corpo"),
         (r"\bsem\s+gaiola\b", "gaiola"),
         (r"\bsem\s+poste[s]?\b", "postes"),
-        (r"(?:não quero|tirar|remover|excluir)\s+(?:a\s+)?passarela\b", "passarela"),
-        (r"(?:não quero|tirar|remover|excluir)\s+(?:o\s+)?guarda[- ]?corpo\b", "guarda-corpo"),
+        (r"(?:não quero|tir[ae]r?|remov[ae]r?|exclu[ae]r?)\s+(?:a\s+)?passarela\b", "passarela"),
+        (r"(?:não quero|tir[ae]r?|remov[ae]r?|exclu[ae]r?)\s+(?:o\s+)?guarda[- ]?corpo\b", "guarda-corpo"),
     ]
 
     for pattern, feature in patterns:
@@ -396,40 +448,3 @@ def build_user_message(text: str, intent: Optional[Dict[str, Any]] = None,
         parts.append(f"AUSÊNCIAS EXPLÍCITAS PEDIDAS: {', '.join(absences)}")
     parts.append(f"Pergunta: {text}")
     return "\n".join(parts)
-
-
-def build_review_response(model: Any, absences: List[str] = None) -> Dict[str, Any]:
-    """Constrói resposta de revisão honesta: presentes, ausentes, pendências."""
-    panel = model.panel
-    inst = model.installation
-    groups = {}
-    for el in model.elements:
-        g = (el.group or "").upper()
-        for key in ["GAIOLA", "PASSARELA", "GUARDA"]:
-            if key in g:
-                groups[key.lower()] = True
-    presentes = []
-    if panel.width > 0 and panel.height > 0:
-        presentes.append(f"painel {round(panel.width)}x{round(panel.height)} mm")
-    if groups.get("gaiola"):
-        presentes.append(f"gaiola (prof {round(panel.depth or 0)} mm)")
-    if any(el.type == "post" for el in model.elements):
-        presentes.append(f"{inst.posts} poste(s)")
-    if groups.get("passarela"):
-        presentes.append("passarela")
-    if groups.get("guarda-corpo"):
-        presentes.append("guarda-corpo")
-    ausentes_solicitados = []
-    if absences:
-        for a in absences:
-            norm = a.replace("-", "-")
-            if not groups.get(norm):
-                ausentes_solicitados.append(a)
-    pendencias = []
-    # Apenas pendências geométricas reais, não opcionais não solicitados
-    return {
-        "presentes": presentes,
-        "ausentes_solicitados": ausentes_solicitados,
-        "pendencias": pendencias,
-        "premissas": [],
-    }

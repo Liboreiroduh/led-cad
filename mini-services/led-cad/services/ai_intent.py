@@ -193,17 +193,25 @@ def derive_from_text(text: str, model: Any) -> Dict[str, Any]:
     # de estrutura é CONTAGEM (colunas×linhas); o par com valores > 50 é o
     # MÓDULO em mm. Painel = módulo × contagem, não o par de contagem.
     # A03 (ampliado): aceita "4x2 gabinetes de 960x960", "4 por 2 gabinetes
-    # de 960" (separador POR e módulo único quadrado) e variantes cm/m.
+    # de 960" (separador POR e módulo único quadrado), variantes cm/m e a
+    # forma explícita "N colunas × M fileiras de gabinetes 0,96×0,96m".
     _CAB = re.compile(
-        r"(\d{1,2})\s*(?:[x×]|por)\s*(\d{1,2})\s*"
-        r"(?:gabinetes?|m[óo]dulos?|c[éa]lulas?)"
+        r"(\d{1,2})\s*(?:colunas?\s*)?(?:[x×]|por)\s*(\d{1,2})\s*(?:fileiras?\s*)?"
+        r"(?:de\s+)?(?:gabinetes?|m[óo]dulos?|c[éa]lulas?)"
         r"(?:\s+de)?\s+"
         r"(?:([0-9]+[.,]?[0-9]*)\s*[x×]\s*([0-9]+[.,]?[0-9]*)"
         r"|([0-9]+[.,]?[0-9]*))"
         r"\s*(mm|cm|m)?",
         re.IGNORECASE)
     cm2 = _CAB.search(text or "")
-    wm = _WXH.search(text or "")
+    # Par de painel: prefere o par precedido de "painel" — em "use a
+    # referência 4×2 com painel 5000×2000", o 4×2 é o NOME da referência,
+    # não a dimensão alvo (caminhos diferentes não reinterpretam a mesma
+    # informação: quem nomeia a referência é 'referência', quem dimensiona
+    # o painel é 'painel N×M').
+    wm = (re.search(r"painel\s+(\d+(?:[.,]\d+)?)\s*[x×]\s*(\d+(?:[.,]\d+)?)"
+                    r"\s*(mm|cm|m)?\b", text or "", re.IGNORECASE)
+          or _WXH.search(text or ""))
     if cm2:
         cols = int(_f(cm2.group(1), 0) or 0)
         rows = int(_f(cm2.group(2), 0) or 0)
@@ -245,13 +253,15 @@ def derive_from_text(text: str, model: Any) -> Dict[str, Any]:
 
     def _has(*words: str) -> Optional[bool]:
         # A01: negação imediata antes da palavra ("sem passarela", "não
-        # quero guarda-corpo") inverte o sentido — nunca True por presença.
+        # quero guarda-corpo", "tire a passarela") inverte o sentido —
+        # nunca True por presença.
         for w in words:
             idx = t.find(w)
             while idx != -1:
-                before = t[max(0, idx - 14):idx]
+                before = t[max(0, idx - 20):idx]
                 if re.search(r"\b(sem|nao quero|nao precisa|nao use|retire|"
-                             r"remova|tir[ae]|exclua|nenhum|nenhuma)\s*$"
+                             r"remov[ae]r?|tir[ae]s?|exclu[ae]r?|nenhum|nenhuma)"
+                             r"\s+(?:a\s+|o\s+|as\s+|os\s+|um\s+|uma\s+)?$"
                              r"|\bsem\s+(?:a\s+|o\s+|um\s+|uma\s+)?$",
                              before):
                     return False
@@ -264,8 +274,40 @@ def derive_from_text(text: str, model: Any) -> Dict[str, Any]:
     if rail:
         walk = True  # guarda-corpo nunca existe sem passarela
 
+    # Contagem EXPLÍCITA de postes (regra 3: informação explícita entra na
+    # intenção canônica): "1 poste", "dois postes", "sem postes" → 0.
+    # "coloque mais um poste" é incremento de edição — NÃO define o total
+    # (regra D) e não entra na intenção.
+    posts: Optional[int] = None
+    if not re.search(r"mais\s+(?:um|uma|dois|duas|tr[eê]s|\d+)\s+poste", t):
+        if re.search(r"\bsem\s+postes?\b|\bnenhum\s+poste\b", t):
+            posts = 0
+        else:
+            pm = re.search(r"\b(\d{1,2})\s*poste", t)
+            pw = re.search(
+                r"\b(um|uma|dois|duas|tr[eê]s|quatro|cinco|seis)\s+poste", t)
+            if pm:
+                posts = int(_f(pm.group(1), 0) or 0)
+            elif pw:
+                posts = {"um": 1, "uma": 1, "dois": 2, "duas": 2, "três": 3,
+                         "tres": 3, "quatro": 4, "cinco": 5, "seis": 6}.get(
+                             pw.group(1).lower())
+
+    # Pedido que define a ESTRUTURA COMPLETA (medidas + postes) é substituição
+    # de UMA estrutura, mesmo sem verbo de criação — global_resize vai direto
+    # ao compilador (regra 8) em vez de virar "edição ambígua".
+    if intent == "local_edit" and posts is not None:
+        p = panel or {}
+        if p.get("width") or p.get("height") or (p.get("cabinet") or {}).get("w"):
+            intent = "global_resize"
+
+    # Em edição local, contagem de postes é INCREMENTO, não total: não entra
+    # na intenção canônica (o GLM decide a operação pontual).
+    if intent == "local_edit":
+        posts = None
+
     out: Dict[str, Any] = {"intent": intent, "panel": panel,
-                           "install": {"ground_clearance": gc, "posts": None},
+                           "install": {"ground_clearance": gc, "posts": posts},
                            "features": {"cage": cage, "walkway": walk,
                                         "guardrail": rail},
                            "context": ctx, "source": "copiloto",
