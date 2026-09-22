@@ -18,6 +18,7 @@ from __future__ import annotations
 import json
 import re
 import secrets
+import http.client
 import time
 import urllib.error
 import urllib.parse
@@ -32,6 +33,10 @@ TIMEOUT_S = 75.0
 # User-Agent estável de aplicação: o Cloudflare do Groq bloqueia a assinatura
 # padrão Python-urllib com 403/1010 antes de processar a autenticação.
 HTTP_USER_AGENT = "LED-Structure-CAD/1.0"
+
+
+class _TransientNetError(Exception):
+    """Falha de rede transitória (conexão morta/resetada) — elegível a retry."""
 
 
 class AiError(RuntimeError):
@@ -242,6 +247,24 @@ def _http_json(url: str, payload: Dict[str, Any], headers: Optional[Dict[str, st
     merged = {"Content-Type": "application/json", "User-Agent": HTTP_USER_AGENT,
               **(headers or {})}
     req = urllib.request.Request(url, data=body, method="POST", headers=merged)
+    # Provedores do tier gratuito (Z.ai/Groq) derrubam conexões de forma
+    # intermitente (http.client.RemoteDisconnected / ConnectionResetError).
+    # Essas exceções NÃO são URLError — antes escapavam como 500 na UI.
+    # Política: 1 retry automático (falham rápido) e, persistindo, AiError
+    # clara (que o endpoint traduz em mensagem amigável, nunca 500).
+    last_net: Optional[Exception] = None
+    for attempt in (1, 2):
+        try:
+            return _http_json_once(req, timeout)
+        except _TransientNetError as e:
+            last_net = e
+            if attempt == 1:
+                time.sleep(0.8)
+                continue
+    raise AiError(f"Falha de conexão com o provedor ({last_net})") from last_net
+
+
+def _http_json_once(req: urllib.request.Request, timeout: float) -> Dict[str, Any]:
     try:
         with urllib.request.urlopen(req, timeout=timeout) as resp:
             return json.loads(resp.read().decode("utf-8"))
@@ -265,7 +288,13 @@ def _http_json(url: str, payload: Dict[str, Any], headers: Optional[Dict[str, st
         raise AiError(f"HTTP {e.code} do provedor: {detail or e.reason}",
                       status=e.code, retry_after=retry) from e
     except urllib.error.URLError as e:
-        raise AiError(f"Falha de conexão com o provedor ({e.reason})") from e
+        # DNS recusado/host inalcançável → transitório na prática do tier gratuito
+        raise _TransientNetError(f"URLError: {e.reason}") from e
+    except (OSError, http.client.HTTPException) as e:
+        # http.client.RemoteDisconnected / ConnectionResetError / BadStatusLine:
+        # o provedor derrubou a conexão — NÃO eram URLError nem HTTPError e
+        # antes vazavam como exceção não tratada (HTTP 500 no Copiloto).
+        raise _TransientNetError(f"{type(e).__name__}: {e}") from e
     except TimeoutError:
         raise AiError("Tempo esgotado esperando a resposta da IA.",
                       status=408) from None

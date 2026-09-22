@@ -244,12 +244,14 @@ def classify_with_selection(text: str, intent: Optional[Dict[str, Any]] = None,
         return "local_edit"
     if base == "local_edit" and selection_count == 0 and not NEGATION_ONLY.match(text or ""):
         # Edição local sem seleção específica pode ser ambígua — mas alvo
-        # explícito (painel, gaiola, passarela, guarda-corpo, postes,
-        # gabinetes/colunas/fileiras) NÃO é ambíguo.
+        # explícito NÃO é ambíguo. SINGULARES cobrem o plural por substring
+        # ("poste" ∈ "postes") — antes só o plural constava e o chip
+        # "+ poste" ("adicione mais um poste…") caía em ambiguous.
         if not any(w in (text or "").lower() for w in
-                   ["todos", "todas", "painel", "gaiola", "postes", "passarela",
+                   ["todos", "todas", "painel", "gaiola", "poste", "passarela",
                     "guarda", "gabinete", "coluna", "fileira", "montante",
-                    "travessa"]):
+                    "travessa", "estrutura", "casa", "telhado", "elemento",
+                    "barra", "viga", "projeto"]):
             return "ambiguous"
     return base
 

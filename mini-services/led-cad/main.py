@@ -1257,8 +1257,10 @@ def ai_command(body: AiIn):
                 result["message"] = explain
             return _payload(result)
         except (AiError, ValueError) as e:
-            # JSONDecodeError é subclasse de ValueError — coberto aqui
-            print(f"[ai] provedor falhou (modo {body.mode}): {e}", flush=True)
+            # JSONDecodeError é subclasse de ValueError — coberto aqui.
+            # Sanitizado: console CP1252 (Windows) quebra com emoji do provedor
+            safe = str(e).encode("ascii", "backslashreplace").decode("ascii")
+            print(f"[ai] provedor falhou (modo {body.mode}): {safe}", flush=True)
             if body.mode == "llm":
                 return {"ok": False, "engine": "llm",
                         "message": f"IA real indisponível: {e}",
@@ -1595,6 +1597,15 @@ def ai_plan(body: AiPlanIn):
     except OperationError as e:
         return _out({"ok": False, "mode": "plan",
                      "message": f"A IA devolveu operações inválidas: {e}"})
+    except Exception as e:  # rede de segurança: NUNCA 500 no Copiloto
+        # Exceções fora do contrato (ex.: http.client.RemoteDisconnected que
+        # escapasse ao retry) derrubavam a chamada com HTTP 500 — a UI mostra
+        # "Server error" sem orientação. Agora vira mensagem acionável.
+        safe = repr(e).encode("ascii", "backslashreplace").decode("ascii")
+        print(f"[ai-plan] erro inesperado: {safe}", flush=True)
+        return _out({"ok": False, "mode": "plan",
+                     "message": "A conexão com a IA caiu no meio da chamada. "
+                                "Tente reenviar o pedido."})
 
 
 # ------------------------------------------- conector IA (conexões manuais)
