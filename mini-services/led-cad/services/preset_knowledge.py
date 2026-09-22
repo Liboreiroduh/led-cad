@@ -68,14 +68,18 @@ def find_preset_by_id(preset_id: str) -> Optional[Dict[str, Any]]:
 
 
 def detect_preset_reference(text: str) -> Optional[str]:
-    """Detecta menção a preset DE REFERÊNCIA no texto do usuário.
+    """Detecta INTENÇÃO EXPLÍCITA de referência no texto do usuário.
 
     Comportamento correto:
-    - "preset 2x4", "referência 2x4", "painel 2x4 metros" → mapeia para REF_2000X4000
+    - "preset 4x2", "referência 4x2", "use o modelo 4x2",
+      "igual ao 4x2 Fabian" → mapeia para REF_4000X2000
+    - "painel 4x2 metros", "painel de 2000x4000 mm" → NÃO mapeia
+      (é DIMENSÃO comum, não referência)
     - "2x4 gabinetes de 960" → NÃO mapeia (é contagem de gabinetes, não referência nominal)
     - "2 colunas × 1 fileira de gabinetes 960×960" → NÃO mapeia (modulação explícita)
 
-    Usa contexto textual para diferenciar.
+    Só seleção automática com palavra-chave de referência; dimensão
+    declarada sem esse vocabulário nunca escolhe preset.
     """
     import re
 
@@ -95,11 +99,12 @@ def detect_preset_reference(text: str) -> Optional[str]:
                  t, re.I):
         return None
 
-    # Padrões para capturar referências nominais como "2x4", "3x2", etc.
+    # Somente INTENÇÃO EXPLÍCITA de referência seleciona preset.
+    # Dimensão comum ("painel 4×2 metros") NÃO é referência.
     patterns = [
-        r"(?:preset|referência|referencia|painel)\s+(\d+)\s*[×xX]\s*(\d+)",  # "preset 2x4"
-        r"(\d+)\s*[×xX]\s*(\d+)\s+(?:metros|m|meters)\b",                    # "2x4 metros"
-        r"(?:ref|REF)[-_]?(\d)\s*[×xX]\s*(\d)",                              # "REF_2x4" ou "REF-2x4"
+        r"(?:preset|referência|referencia)\s+(\d+)\s*[×xX]\s*(\d+)",  # "preset 4x2", "referência 4x2"
+        r"(?:modelo|igual\s+(?:a|ao|à|as|aos|às))\s+(?:o\s+|a\s+)?(\d+)\s*[×xX]\s*(\d+)",  # "modelo 4x2", "igual ao 4x2 Fabian"
+        r"(?:ref|REF)[-_]?(\d)\s*[×xX]\s*(\d)",                       # "REF_4x2" ou "REF-4x2"
     ]
 
     for pattern in patterns:
