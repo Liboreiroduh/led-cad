@@ -860,6 +860,25 @@ table.shortcuts td:first-child { white-space: nowrap; width: 1%; }
   <div class="modal" style="width:min(540px,94vw)">
     <header><b>⚙ Conector de IA</b><button class="mx" data-close="aiCfgModal">✕</button></header>
     <div class="content">
+      <div style="border:1px solid rgba(66,133,244,.45);background:color-mix(in srgb,#4285f4 7%,transparent);border-radius:10px;padding:12px;margin-bottom:14px">
+        <b style="font-size:12.5px">✦ Piloto CAD — Google Gemini</b>
+        <p style="font-size:10.5px;color:var(--muted);margin:5px 0 8px;line-height:1.5">
+          Cole somente sua API key Gemini (grátis em aistudio.google.com/apikey). Endpoint oficial
+          OpenAI-compatível já configurado — o modelo recebe TODO o pensamento do CAD (glossário,
+          contrato de operações, presets) e usa todas as funções do Copiloto.</p>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
+          <select id="gemPilotModel" style="flex:0 0 200px;padding:8px">
+            <option value="gemini-2.5-flash" selected>gemini-2.5-flash</option>
+            <option value="gemini-2.5-flash-lite">gemini-2.5-flash-lite</option>
+            <option value="gemini-2.5-pro">gemini-2.5-pro</option>
+            <option value="gemini-2.0-flash">gemini-2.0-flash</option>
+            <option value="gemini-2.0-flash-lite">gemini-2.0-flash-lite</option>
+          </select>
+          <input type="password" id="gemPilotKey" placeholder="cole aqui a API key Gemini…" autocomplete="off" style="flex:1;min-width:150px">
+          <button type="button" class="btn primary" id="gemPilotActivate">Ativar Gemini</button>
+        </div>
+        <p id="gemPilotOut" style="font-size:10.5px;margin:7px 0 0;color:var(--muted)"></p>
+      </div>
       <div style="border:1px solid rgba(20,184,166,.4);background:color-mix(in srgb,var(--accent) 6%,transparent);border-radius:10px;padding:12px;margin-bottom:14px">
         <b style="font-size:12.5px">✈ Piloto CAD — Z.ai GLM-4.5-Flash</b>
         <p style="font-size:10.5px;color:var(--muted);margin:5px 0 8px;line-height:1.5">
@@ -2642,6 +2661,44 @@ $("#zaiPilotActivate").addEventListener("click", async () => {
     target = aiConnById(AI_CFG.active_connection_id);
     $("#zaiPilotKey").value = "";
     out.textContent = `✅ Piloto CAD ativo — ${target?.name} · ${target?.model} (respondeu em ${t.elapsed_s}s).`;
+    out.style.color = "var(--accent)";
+    aiLoadForm(target); renderConnList(); renderConnStrip();
+  } catch (e) {
+    let m = e.message || String(e);
+    if (/429/.test(m)) m = "⏳ " + m; else if (/402/.test(m)) m = "💳 " + m;
+    out.textContent = `❌ ${m} — nada foi ativado.`; out.style.color = "var(--danger)";
+  }
+});
+
+/* Google Gemini — ativação com lista oficial de modelos (endpoint
+ * OpenAI-compatível /v1beta/openai; o modelo recebe o prompt canônico
+ * completo do CAD e usa todas as funções do Copiloto). */
+const GEMINI_PILOT = {
+  base_url: "https://generativelanguage.googleapis.com/v1beta/openai",
+  label: (m) => `Google Gemini · ${m} · Piloto CAD`,
+};
+
+$("#gemPilotActivate").addEventListener("click", async () => {
+  const out = $("#gemPilotOut");
+  const key = $("#gemPilotKey").value.trim();
+  const model = $("#gemPilotModel").value;
+  const name = GEMINI_PILOT.label(model);
+  if (!key) { out.textContent = "Cole sua API key Gemini antes de ativar."; out.style.color = "var(--danger)"; return; }
+  out.textContent = "Ativando (testando endpoint com a chave)…"; out.style.color = "var(--muted)";
+  try {
+    // 1) teste efêmero: endpoint/modelo escolhidos + a chave colada (não salva nada)
+    const t = await api("/api/ai/test-dry", { method: "POST", body: JSON.stringify({
+      name, base_url: GEMINI_PILOT.base_url, model, api_key: key }) });
+    if (!t.ok) throw new Error(aiErrText(t));
+    // 2) reusa a conexão Gemini se já existir (mesmo name+base+model); não toca nas demais
+    let target = (AI_CFG?.connections || []).find(c =>
+      c.name === name && c.base_url === GEMINI_PILOT.base_url && c.model === model);
+    AI_CFG = requireAiSuccess(await api("/api/ai/config", { method: "POST", body: JSON.stringify({
+      id: target?.id || null,
+      name, base_url: GEMINI_PILOT.base_url, model, api_key: key }) }));
+    target = aiConnById(AI_CFG.active_connection_id);
+    $("#gemPilotKey").value = "";
+    out.textContent = `✅ Gemini ativo — ${target?.name} · ${target?.model} (respondeu em ${t.elapsed_s}s).`;
     out.style.color = "var(--accent)";
     aiLoadForm(target); renderConnList(); renderConnStrip();
   } catch (e) {

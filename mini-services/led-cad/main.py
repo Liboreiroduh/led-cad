@@ -1538,9 +1538,12 @@ def ai_plan(body: AiPlanIn):
             model, bom_full(model),
             [{"id": p["id"], "name": p["name"]} for p in list_presets()],
             view=body.view, selection_ids=body.selection_ids, intent=intent)
+        # pacote de conhecimento do piloto vai para QUALQUER provedor
+        # (Z.ai, Gemini, Groq, OpenAI…): glossário, unidades, roteiro
+        # canônico — todo o pensamento do CAD no prompt ativo.
+        sys_p += "\n\n" + pilot.knowledge_block()
         if pilot_on:
-            # pacote de conhecimento do piloto + memória viva do projeto
-            sys_p += "\n\n" + pilot.knowledge_block()
+            # memória viva do projeto (fusão de respostas curtas)
             mem = pilot.memory_valid(STORE.project_id, STORE.revision)
             if mem:
                 sys_p += (f"\n\n## CONTEXTO DA CONVERSA (rev {STORE.revision})\n"

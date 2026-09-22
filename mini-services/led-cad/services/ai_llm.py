@@ -209,6 +209,13 @@ def provider_capabilities(cfg: Optional[Dict[str, Any]] = None) -> Dict[str, Any
     if host == "api.z.ai":
         return {"structured_output": False, "strict_schema": False,
                 "reasoning": True, "max_tokens": 8192}
+    if host.endswith("generativelanguage.googleapis.com"):
+        # Google Gemini — endpoint OFICIAL OpenAI-compatível
+        # (/v1beta/openai/chat/completions com Bearer key): recebe messages
+        # padrão (system incluído). Saída JSON garantida pelo contrato no
+        # prompt + extração/retry guiado (run_cad_plan) — mesmo caminho da Z.ai.
+        return {"structured_output": False, "strict_schema": False,
+                "reasoning": False, "max_tokens": 8192}
     if host == "api.groq.com":
         oss = model.startswith("openai/gpt-oss")
         # O tier gratuito do Groq tem orçamento de tokens por minuto. GPT-OSS
