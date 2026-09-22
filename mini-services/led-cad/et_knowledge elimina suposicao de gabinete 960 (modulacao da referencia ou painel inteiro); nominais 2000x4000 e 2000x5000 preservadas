@@ -1,0 +1,6 @@
+warning: in the working copy of 'services/preset_knowledge.py', LF will be replaced by CRLF the next time Git touches it
+ models/profile.py                 |   2 [32m+[m
+ presets/referencias/catalogo.json |  12 [32m++[m[31m--[m
+ services/preset_knowledge.py      | 146 [32m++++++++++++++++++++++++++++[m[31m----------[m
+ services/preset_service.py        |  81 [32m++++++++++++++++[m[31m-----[m
+ 4 files changed, 181 insertions(+), 60 deletions(-)
