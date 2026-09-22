@@ -80,9 +80,11 @@ def _validate(spec: Dict[str, Any]) -> None:
             raise OperationError(f"cage.depth inválida: {d} mm (1..2000).")
     walk = spec.get("walkway") or {}
     if walk.get("enabled"):
-        d = _f(walk.get("depth"), 0)
-        if not 0 < d <= 2000:
-            raise OperationError(f"walkway.depth inválida: {d} mm.")
+        # depth None é válido: o compilador espelha a profundidade da gaiola
+        if walk.get("depth") is not None:
+            d = _f(walk.get("depth"), 0)
+            if not 0 < d <= 2000:
+                raise OperationError(f"walkway.depth inválida: {d} mm.")
     rail = spec.get("guardrail") or {}
     if rail.get("enabled"):
         h = _f(rail.get("height"), 0)
@@ -115,7 +117,11 @@ def intent_to_spec(intent: Dict[str, Any]) -> Dict[str, Any]:
         "cage": {"enabled": bool(feats.get("cage") or cabinet.get("w")),
                  "depth": float(p.get("depth") or 650)},
         "supports": {"count": int(install.get("posts") or 0), "positions": None},
-        "walkway": {"enabled": bool(walk), "side": "rear", "depth": 600},
+        # Passarela traseira contígua: sem profundidade explícita no intent,
+        # deixa None — o compilador espelha a profundidade da gaiola
+        # (ex.: gaiola 650 → piso da passarela em Y=-650 → -1300).
+        "walkway": {"enabled": bool(walk), "side": "rear",
+                    "depth": (float(p["depth"]) if p.get("depth") else None)},
         "guardrail": {"enabled": bool(feats.get("guardrail") or False),
                       "height": 1100},
     }
@@ -149,7 +155,10 @@ def compile_spec(spec: Dict[str, Any]) -> Dict[str, Any]:
 
     walk = spec.get("walkway") or {}
     walk_on = bool(walk.get("enabled"))
-    walk_d = _f(walk.get("depth"), 600) if walk_on else 0.0
+    # Sem profundidade explícita, a passarela traseira espelha a gaiola
+    # (contígua, mesma modulação) — ex.: gaiola 650 → walk 650 (Y=-650→-1300).
+    walk_d = _f(walk.get("depth"), cage_d if cage_on else 600.0) \
+        if walk_on else 0.0
 
     rail = spec.get("guardrail") or {}
     rail_on = bool(rail.get("enabled")) and walk_on
@@ -202,8 +211,11 @@ def compile_spec(spec: Dict[str, Any]) -> Dict[str, Any]:
         # posições explícitas vencem; senão distribui simetricamente
         xs_p = post_x if len(post_x) == n_posts else \
             [-pw / 2 + (i + 1) * pw / (n_posts + 1) for i in range(n_posts)]
-        y_p = _f((supports.get("positions") or [{}])[0].get("y"), cage_d / 2) \
-            if supports.get("positions") else cage_d / 2
+        # Poste DENTRO da profundidade da estrutura: a gaiola ocupa
+        # Y=0 (frente) → Y=-cage_d (traseira); o centro é Y=-cage_d/2.
+        # y positivo fica FORA da gaiola (na frente do painel).
+        y_p = _f((supports.get("positions") or [{}])[0].get("y"),
+                 -cage_d / 2) if supports.get("positions") else -cage_d / 2
         for x in xs_p:
             ops.append({"operation": "add_post", "x": round(x), "y": round(y_p),
                         "height": round(gc), "group": "POSTES"})
@@ -228,19 +240,30 @@ def compile_spec(spec: Dict[str, Any]) -> Dict[str, Any]:
                     "cols": max(2, cols), "rows": 2,
                     "group": "PASSARELA PISO"})
         if rail_on:
-            # guarda-corpo: topo + meio, nos 3 lados abertos
-            z_rail = gc + rail_h
-            for z, role in ((z_rail, "trave"), (gc + rail_h / 2, "trave")):
+            # guarda-corpo: montantes VERTICAIS reais (x,y fixos; z varia) nos
+            # 4 cantos abertos da passarela, amarrados por travessas nos níveis
+            # superior (gc+rail_h) e intermediário (gc+rail_h/2).
+            z_top = gc + rail_h
+            z_mid = gc + rail_h / 2
+            for x, y in ((-pw / 2, y1), (pw / 2, y1),       # cantos traseiros
+                         (-pw / 2, y0), (pw / 2, y0)):      # cantos laterais frontais
+                ops.append({"operation": "add_beam",
+                            "start": {"x": round(x), "y": round(y), "z": round(gc)},
+                            "end": {"x": round(x), "y": round(y), "z": round(z_top)},
+                            "group": "GUARDA-CORPO", "role": "vertical"})
+            # travessa superior + intermediária TRASEIRA (x corre em Y fixo)
+            for z in (z_top, z_mid):
                 ops.append({"operation": "add_beam",
                             "start": {"x": round(-pw / 2), "y": round(y1), "z": round(z)},
                             "end": {"x": round(pw / 2), "y": round(y1), "z": round(z)},
-                            "group": "GUARDA-CORPO", "role": role})
+                            "group": "GUARDA-CORPO", "role": "trave"})
+            # travessas LATERAIS superior + intermediária (y corre em X fixo)
             for x in (-pw / 2, pw / 2):
-                for z in (gc, z_rail):
+                for z in (z_top, z_mid):
                     ops.append({"operation": "add_beam",
-                                "start": {"x": round(x), "y": round(y1), "z": round(z)},
-                                "end": {"x": round(x), "y": round(y0), "z": round(z)},
-                                "group": "GUARDA-CORPO", "role": "vertical"})
+                                "start": {"x": round(x), "y": round(y0), "z": round(z)},
+                                "end": {"x": round(x), "y": round(y1), "z": round(z)},
+                                "group": "GUARDA-CORPO", "role": "trave"})
 
     if len(ops) > MAX_OPS:
         raise OperationError(
